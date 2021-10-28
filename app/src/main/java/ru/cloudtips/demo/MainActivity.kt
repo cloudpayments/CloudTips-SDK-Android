@@ -1,21 +1,17 @@
 package ru.cloudtips.demo
 
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import ru.cloudtips.demo.databinding.ActivityMainBinding
 import ru.cloudtips.sdk.CloudTipsSDK
+import ru.cloudtips.sdk.CloudTipsSDK.TransactionStatus.Cancelled
+import ru.cloudtips.sdk.CloudTipsSDK.TransactionStatus.Succeeded
 import ru.cloudtips.sdk.TipsConfiguration
 import ru.cloudtips.sdk.TipsData
 
 
 class MainActivity : AppCompatActivity() {
-
-    companion object {
-        private const val REQUEST_CODE_TIPS = 1
-    }
-
 
     private lateinit var binding: ActivityMainBinding
 
@@ -23,6 +19,15 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val launcher = CloudTipsSDK.getInstance().launcher(this){ status ->
+            Toast.makeText(
+                this, when (status) {
+                    Succeeded -> "Чаевые получены"
+                    Cancelled -> "Пользователь закрыл форму не оставив чаевых"
+                }, Toast.LENGTH_SHORT
+            ).show()
+        }
 
         binding.buttonContinue.setOnClickListener {
             val phone = binding.editTextPhone.text.toString()
@@ -35,30 +40,7 @@ class MainActivity : AppCompatActivity() {
             val tipsData = TipsData(phone, "CloudTips demo user", "partner_id")
             val configuration = TipsConfiguration(tipsData)
             //val configuration = TipsConfiguration(tipsData, true) // Режим тестирования
-            CloudTipsSDK.getInstance().start(configuration, this, REQUEST_CODE_TIPS)
+            launcher.launch(configuration)
         }
     }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) =
-        when (requestCode) {
-            REQUEST_CODE_TIPS -> {
-                val transactionStatus =
-                    data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
-
-                if (transactionStatus != null) {
-                    if (transactionStatus == CloudTipsSDK.TransactionStatus.Succeeded) {
-                        Toast.makeText(this, "Чаевые получены", Toast.LENGTH_SHORT).show()
-                    } else if (transactionStatus == CloudTipsSDK.TransactionStatus.Cancelled) {
-                        Toast.makeText(
-                            this,
-                            "Пользователь закрыл форму не оставив чаевых",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-                Unit
-            }
-            else -> super.onActivityResult(requestCode, resultCode, data)
-        }
 }
