@@ -53,4 +53,11 @@
         <item name="android:background">@drawable/selector_bg_radio_button_amount</item>
         <item name="android:elevation">8dp</item>
     </style>
+
+    <style name="SwitchTheme" parent="Widget.AppCompat.CompoundButton.Switch">
+        <item name="colorAccent">#428BF9</item>
+        <item name="android:colorForeground">#797A7A</item>
+        <item name="colorSwitchThumbNormal">@android:color/white</item>
+    </style>
+
 </resources>

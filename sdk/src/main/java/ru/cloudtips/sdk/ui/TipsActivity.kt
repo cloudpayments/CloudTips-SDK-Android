@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.text.Editable
 import android.text.Html
 import android.util.Log
@@ -17,6 +18,7 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.request.RequestOptions
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import ru.cloudpayments.sdk.configuration.CloudpaymentsSDK
@@ -32,7 +34,7 @@ import ru.cloudtips.sdk.databinding.ActivityTipsBinding
 import ru.cloudtips.sdk.utils.GooglePayHandler
 import java.text.DecimalFormat
 
-internal class TipsActivity : PayActivity()  {
+internal class TipsActivity : PayActivity() {
 
     companion object {
         private const val REQUEST_CODE_CARD_ACTIVITY = 101
@@ -87,8 +89,9 @@ internal class TipsActivity : PayActivity()  {
     private fun initUI() {
 
         binding.imageViewClose.setOnClickListener {
-            setResult(RESULT_OK,Intent().apply {
-            putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, CloudTipsSDK.TransactionStatus.Cancelled)})
+            setResult(RESULT_OK, Intent().apply {
+                putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, CloudTipsSDK.TransactionStatus.Cancelled)
+            })
             finish()
         }
 
@@ -110,13 +113,20 @@ internal class TipsActivity : PayActivity()  {
                 if (amount != "2000") binding.radioButton2000.isChecked = false
                 if (amount != "3000") binding.radioButton3000.isChecked = false
                 if (amount != "5000") binding.radioButton5000.isChecked = false
+
+                requestFeeValue(false)
             }
         })
+        //update fee on leave focus
+        binding.editTextAmount.setOnFocusChangeListener { v, hasFocus ->
+            if (!hasFocus) requestFeeValue(true)
+        }
 
         val listener = CompoundButton.OnCheckedChangeListener() { buttonView, isChecked ->
             (buttonView as RadioButton).also {
                 if (isChecked) {
                     binding.editTextAmount.setText(it.text.toString().replace(" ₽", ""))
+                    requestFeeValue(true)
                 }
             }
         }
@@ -153,7 +163,7 @@ internal class TipsActivity : PayActivity()  {
                 return@setOnClickListener
             }
 
-            val intent = CardActivity.getStartIntent(this, photoUrl, name, layoutId, amount(), comment())
+            val intent = CardActivity.getStartIntent(this, photoUrl, name, layoutId, amount(), getAmountWithFee(), comment(), feeFromPayer())
             startActivityForResult(intent, REQUEST_CODE_CARD_ACTIVITY)
         }
 
@@ -172,7 +182,7 @@ internal class TipsActivity : PayActivity()  {
         binding.textViewAgreement.text = Html.fromHtml(text)
 
         binding.textViewAgreement.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW,  Uri.parse("https://static.cloudpayments.ru/docs/cloudtips_oferta.pdf"))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://static.cloudpayments.ru/docs/cloudtips_oferta.pdf"))
             startActivity(intent)
         }
 
@@ -273,10 +283,54 @@ internal class TipsActivity : PayActivity()  {
         }
 
         val dec = DecimalFormat("#,###.##")
-        val amount_desc = getString(R.string.tips_amount_desc_start) + dec.format(minAmount) + getString(R.string.tips_amount_desc_divider) + dec.format(maxAmount) + getString(R.string.tips_amount_desc_end)
+        val amount_desc =
+            getString(R.string.tips_amount_desc_start) + dec.format(minAmount) + getString(R.string.tips_amount_desc_divider) + dec.format(maxAmount) + getString(
+                R.string.tips_amount_desc_end
+            )
         binding.textViewAmountDesc.text = amount_desc
 
+        feeVisible = paymentPage.payerFee?.enabled ?: false
+        val feeEnabled = paymentPage.payerFee?.getIsEnabled() ?: false
+        binding.feeLayout.visibility = if (feeVisible) View.VISIBLE else View.GONE
+        binding.feeSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
+            updateFeeValue()
+        }
+        binding.feeSwitch.isChecked = feeEnabled
+        updateFeeValue()
+
         hideLoading()
+    }
+
+    private var feeVisible = false
+    private var feeAmount: Double = 0.0
+    private val requestFeeHandler = Handler()
+    private var requestFeeRunnable: Runnable? = null
+    private fun requestFeeValue(immediately: Boolean) {
+        if (!feeVisible) return
+        requestFeeRunnable?.let { requestFeeHandler.removeCallbacks(it) }
+        requestFeeRunnable = Runnable {
+            val amount = amount().toDoubleOrNull() ?: 0.0
+            compositeDisposable.add(
+                Api.getPaymentFee(layoutId, amount)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({ fee ->
+                        feeAmount = fee.amountFromPayer ?: 0.0
+                        updateFeeValue()
+                    }, this::handleError)
+            )
+        }
+        val delay = if (immediately) 0L else 1000L
+        requestFeeHandler.postDelayed(requestFeeRunnable, delay)
+    }
+
+    private fun updateFeeValue() {
+        val formattedValue = DecimalFormat("#.#").format(feeAmount)
+        binding.feeText.text = getString(R.string.tips_fee_description, formattedValue)
+    }
+
+    private fun getAmountWithFee(): Double {
+        return if (binding.feeSwitch.isChecked) feeAmount else amount().toDoubleOrNull() ?: 0.0
     }
 
     private fun getPublicIdForGPay(layoutId: String) {
@@ -300,8 +354,10 @@ internal class TipsActivity : PayActivity()  {
             when (resultCode) {
                 Activity.RESULT_OK -> {
                     setResult(RESULT_OK, Intent().apply {
-                        val transactionStatus = data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
-                        putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, transactionStatus)})
+                        val transactionStatus =
+                            data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
+                        putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, transactionStatus)
+                    })
                     finish()
                 }
                 else -> super.onActivityResult(requestCode, resultCode, data)
@@ -401,5 +457,9 @@ internal class TipsActivity : PayActivity()  {
 
     override fun name(): String {
         return name
+    }
+
+    override fun feeFromPayer(): Boolean {
+        return binding.feeSwitch.isChecked
     }
 }

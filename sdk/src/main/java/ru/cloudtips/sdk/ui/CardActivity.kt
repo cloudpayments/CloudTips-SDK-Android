@@ -20,6 +20,7 @@ import ru.cloudtips.sdk.databinding.ActivityCardBinding
 import ru.tinkoff.decoro.MaskDescriptor
 import ru.tinkoff.decoro.parser.UnderscoreDigitSlotsParser
 import ru.tinkoff.decoro.watchers.DescriptorFormatWatcher
+import java.text.DecimalFormat
 
 class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener {
 
@@ -29,15 +30,28 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         private const val EXTRA_NAME = "EXTRA_NAME"
         private const val EXTRA_LAYOUT_ID = "EXTRA_LAYOUT_ID"
         private const val EXTRA_AMOUNT = "EXTRA_AMOUNT"
+        private const val EXTRA_AMOUNT_FEE = "EXTRA_AMOUNT_FEE"
         private const val EXTRA_COMMENT = "EXTRA_COMMENT"
+        private const val EXTRA_FEE_FROM_PAYER = "EXTRA_FEE_FROM_PAYER"
 
-        fun getStartIntent(context: Context, photoUrl: String, name: String, layoutId: String, amount: String, comment: String): Intent {
+        fun getStartIntent(
+            context: Context,
+            photoUrl: String,
+            name: String,
+            layoutId: String,
+            amount: String,
+            amountFee: Double,
+            comment: String,
+            feeFromPayer: Boolean
+        ): Intent {
             val intent = Intent(context, CardActivity::class.java)
             intent.putExtra(EXTRA_PHOTO_URL, photoUrl)
             intent.putExtra(EXTRA_NAME, name)
             intent.putExtra(EXTRA_LAYOUT_ID, layoutId)
             intent.putExtra(EXTRA_AMOUNT, amount)
+            intent.putExtra(EXTRA_AMOUNT_FEE, amountFee)
             intent.putExtra(EXTRA_COMMENT, comment)
+            intent.putExtra(EXTRA_FEE_FROM_PAYER, feeFromPayer)
 
             return intent
         }
@@ -59,9 +73,18 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         intent.getStringExtra(EXTRA_AMOUNT)
     }
 
+    private val amountFee by lazy {
+        intent.getDoubleExtra(EXTRA_AMOUNT_FEE, 0.0)
+    }
+
     private val comment by lazy {
         intent.getStringExtra(EXTRA_COMMENT)
     }
+
+    private val feeFromPayer by lazy {
+        intent.getBooleanExtra(EXTRA_FEE_FROM_PAYER, false)
+    }
+
 
     private lateinit var publicId: String
 
@@ -106,8 +129,9 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
     private fun initUI() {
 
         binding.imageViewClose.setOnClickListener {
-            setResult(RESULT_OK,Intent().apply {
-                putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, CloudTipsSDK.TransactionStatus.Cancelled)})
+            setResult(RESULT_OK, Intent().apply {
+                putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, CloudTipsSDK.TransactionStatus.Cancelled)
+            })
             finish()
         }
 
@@ -144,7 +168,8 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
             }
         })
 
-        binding.textViewButtonPay.text = getString(R.string.card_pay) + " " + amount + " " + getString(R.string.app_rub_symbol)
+        val amountWithFee = DecimalFormat("#.#").format(amountFee)
+        binding.textViewButtonPay.text = getString(R.string.card_pay) + " " + amountWithFee + " " + getString(R.string.app_rub_symbol)
 
         binding.imageViewBack.setOnClickListener {
             onBackPressed()
@@ -176,7 +201,7 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         hideLoading()
     }
 
-    private fun updatePaymentSystemIcon(cardNumber: String){
+    private fun updatePaymentSystemIcon(cardNumber: String) {
         val cardType = CardType.getType(cardNumber)
         val psIcon = cardType.getIconRes()
         binding.imageViewPaymentSystem.setImageResource(psIcon ?: 0)
@@ -223,5 +248,9 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
 
     override fun name(): String {
         return name
+    }
+
+    override fun feeFromPayer(): Boolean {
+        return feeFromPayer
     }
 }

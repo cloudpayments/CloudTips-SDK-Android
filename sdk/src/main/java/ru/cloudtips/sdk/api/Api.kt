@@ -17,9 +17,11 @@ class Api {
 
         fun offlineRegister(phoneNumber: String, name: String, partner: String): Single<ArrayList<Layout>> {
 
-            var body = OfflineRegisterRequestBody(phoneNumber = phoneNumber,
-                    name = name,
-                    agentCode = partner)
+            var body = OfflineRegisterRequestBody(
+                phoneNumber = phoneNumber,
+                name = name,
+                agentCode = partner
+            )
 
             return ApiFactory.getTipsApi()
                 .offlineRegister(body)
@@ -41,25 +43,43 @@ class Api {
                 .subscribeOn(Schedulers.io())
         }
 
+        fun getPaymentFee(layoutId: String, amount: Double): Single<PaymentFee> {
+            return ApiFactory.getTipsApi()
+                .getPaymentFee(amount, layoutId)
+                .subscribeOn(Schedulers.io())
+        }
+
         fun verify(version: String, token: String, amount: String, layoutId: String): Single<VerifyResponse> {
 
-            val body = VerifyRequestBody(version = version,
+            val body = VerifyRequestBody(
+                version = version,
                 token = token,
                 amount = amount,
-                layoutId = layoutId)
+                layoutId = layoutId
+            )
 
             return ApiFactory.getTipsApi()
                 .verify(body)
                 .subscribeOn(Schedulers.io())
         }
 
-        fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, token: String): Single<PaymentResponse> {
+        fun auth(
+            layoutId: String,
+            cryptogram: String,
+            amount: String,
+            comment: String,
+            feeFromPayer: Boolean,
+            token: String
+        ): Single<PaymentResponse> {
 
-            val body = PaymentRequestBody(layoutId = layoutId,
+            val body = PaymentRequestBody(
+                layoutId = layoutId,
                 cryptogram = cryptogram,
                 amount = amount,
                 comment = comment,
-                captchaVerificationToken = token)
+                captchaVerificationToken = token,
+                feeFromPayer = feeFromPayer
+            )
 
             return ApiFactory.getTipsApi()
                 .auth(body)
@@ -68,12 +88,14 @@ class Api {
 
         fun postThreeDs(md: String, paRes: String): Single<PaymentResponse> {
 
-            val body = PostThreeDsRequestBody(md = md,
-                    paRes = paRes)
+            val body = PostThreeDsRequestBody(
+                md = md,
+                paRes = paRes
+            )
 
             return ApiFactory.getTipsApi()
-                    .postThreeDs(body)
-                    .subscribeOn(Schedulers.io())
+                .postThreeDs(body)
+                .subscribeOn(Schedulers.io())
         }
     }
 }

@@ -29,8 +29,8 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
             Api.verify(recaptchaVersion, "for_trusted_client", amount, layoutId)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                        response -> checkVerifyV3Response(response)
+                .subscribe({ response ->
+                    checkVerifyV3Response(response)
                 }, this::handleError)
         )
     }
@@ -39,7 +39,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
 
         if (response.status == "Passed") {
 
-            auth(layoutId(), cryptogram(), amount(), comment(), "")
+            auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), "")
         } else if (response.type == "InvalidCaptcha") {
             SafetyNet.getClient(this).verifyWithRecaptcha(ApiEndPoint.getRecapchaV2Token())
                 .addOnSuccessListener(this) { response ->
@@ -49,7 +49,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
                 }
                 .addOnFailureListener(this) { e ->
                     if (e is ApiException) {
-                        Log.e(TAG,("Error message: " + CommonStatusCodes.getStatusCodeString(e.statusCode)))
+                        Log.e(TAG, ("Error message: " + CommonStatusCodes.getStatusCodeString(e.statusCode)))
                     } else {
                         Log.e(TAG, "Unknown type of error: " + e.message)
                     }
@@ -71,21 +71,21 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
             Api.verify(recaptchaVersion, token, amount, layoutId)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                        response -> checkVerifyV2Response(response)
+                .subscribe({ response ->
+                    checkVerifyV2Response(response)
                 }, this::handleError)
         )
     }
 
     private fun checkVerifyV2Response(response: VerifyResponse) {
 
-        response.token?.let { auth(layoutId(), cryptogram(), amount(), comment(), it) }
+        response.token?.let { auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), it) }
     }
 
-    private fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, token: String) {
+    private fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, feeFromPayer:Boolean, token: String) {
         showLoading()
         compositeDisposable.add(
-            Api.auth(layoutId, cryptogram, amount, comment, token)
+            Api.auth(layoutId, cryptogram, amount, comment, feeFromPayer, token)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ authResponse -> checkPaymentResponse(authResponse) }, this::handleError)
@@ -136,8 +136,10 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
             when (resultCode) {
                 Activity.RESULT_OK -> {
                     setResult(RESULT_OK, Intent().apply {
-                        val transactionStatus = data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
-                        putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, transactionStatus)})
+                        val transactionStatus =
+                            data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
+                        putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, transactionStatus)
+                    })
                     finish()
                 }
                 else -> super.onActivityResult(requestCode, resultCode, data)
@@ -161,6 +163,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
     abstract fun comment(): String
     abstract fun photoUrl(): String
     abstract fun name(): String
+    abstract fun feeFromPayer(): Boolean
 
 
 }

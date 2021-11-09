@@ -9,4 +9,5 @@ data class PaymentRequestBody(
 		@SerializedName("currency") val currency: String = "RUB",
 		@SerializedName("comment") val comment: String = "",
 		@SerializedName("layoutId") val layoutId: String,
+		@SerializedName("feeFromPayer") val feeFromPayer: Boolean,
 		@SerializedName("captchaVerificationToken") val captchaVerificationToken: String)

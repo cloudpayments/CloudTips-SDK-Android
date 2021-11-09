@@ -41,5 +41,8 @@
     <string name="completion_success_true">Радуется чаевым!</string>
     <string name="completion_success_true_name_is_empty">Спасибо за платеж с CloudTips!</string>
     <string name="completion_error">Ошибка оплаты!</string>
+    <string name="tips_fee_title">Перевести получателю полную сумму</string>
+    <string name="tips_fee_description">Так вы компенсируете комиссию сервиса, а с вашей карты спишется %1$s Р</string>
+    <string name="tips_fee_description_disabled">Так вы компенсируете комиссию сервиса, а с вашей карты спишется 0 ₽</string>
 
 </resources>

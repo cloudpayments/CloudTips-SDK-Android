@@ -18,6 +18,9 @@ interface TipsApi {
     @POST("payment/publicId")
     fun getPublicId(@Body body: GetPublicIdRequestBody): Single<PublicId>
 
+    @GET("payment/fee")
+    fun getPaymentFee(@Query("amount") amount: Double, @Query("layoutId") layoutId: String): Single<PaymentFee>
+
     @POST("captcha/verify")
     fun verify(@Body body: VerifyRequestBody): Single<VerifyResponse>
 
