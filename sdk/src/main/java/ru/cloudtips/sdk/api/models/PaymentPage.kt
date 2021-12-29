@@ -17,14 +17,12 @@ data class PaymentPageText(
     @SerializedName("en") val en: String?
 )
 
-data class PaymentPageAmount(
-    @SerializedName("constraints") val constraints: ArrayList<AmountConstraint>?
-)
+data class PaymentPageAmount(val range: PaymentPageRange?)
 
-data class AmountConstraint(
-    @SerializedName("type") val type: String?,
-    @SerializedName("currency") val currency: String?,
-    @SerializedName("value") val value: Int
+data class PaymentPageRange(
+    val minimal: Double?,
+    val maximal: Double?,
+    val fixed: Double?,
 )
 
 data class PayerFee(

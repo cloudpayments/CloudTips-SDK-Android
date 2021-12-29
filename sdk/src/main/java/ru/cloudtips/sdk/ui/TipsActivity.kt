@@ -268,17 +268,15 @@ internal class TipsActivity : PayActivity() {
             binding.textViewDescription.setText(R.string.tips_desc_name_is_not_empty)
         }
 
-        var amountConstraints = paymentPage.amount?.constraints
+        val amountRange = paymentPage.amount?.range
+        if (amountRange != null) {
 
-        if (amountConstraints != null) {
-            for (constraint in amountConstraints) {
-                if (constraint.type == "Minimal") {
-                    minAmount = constraint.value
-                }
+            if (amountRange.minimal != null) {
+                minAmount = amountRange.minimal.toInt()
+            }
 
-                if (constraint.type == "Maximal") {
-                    maxAmount = constraint.value
-                }
+            if (amountRange.maximal != null) {
+                maxAmount = amountRange.maximal.toInt()
             }
         }
 
