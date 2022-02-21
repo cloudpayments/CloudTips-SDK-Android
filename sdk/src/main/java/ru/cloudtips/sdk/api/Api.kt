@@ -7,15 +7,41 @@ import ru.cloudtips.sdk.api.models.*
 
 class Api {
 
+    enum class ResponseError {
+        OTHER,
+        INVALID_CAPTCHA;
+
+        companion object {
+            fun getByString(value: String?): ResponseError {
+                if (value == "Неверно введена капча" || value == "Invalid captcha") return INVALID_CAPTCHA
+                return OTHER
+            }
+        }
+    }
+
+    class ResponseWrapper<T>(
+        val data: T?,
+        private val succeed: Boolean?,
+        private val errors: List<String>?
+    ) {
+        fun getErrors(): List<ResponseError> {
+            return errors?.map { ResponseError.getByString(it) } ?: emptyList()
+        }
+    }
+
     companion object {
 
-        fun getLayout(phoneNumber: String): Single<ArrayList<Layout>> {
+        fun getLayout(phoneNumber: String): Single<ResponseWrapper<List<Layout>>> {
             return ApiFactory.getTipsApi()
                 .getLayout(phoneNumber)
                 .subscribeOn(Schedulers.io())
         }
 
-        fun offlineRegister(phoneNumber: String, name: String, partner: String): Single<ArrayList<Layout>> {
+        fun offlineRegister(
+            phoneNumber: String,
+            name: String,
+            partner: String
+        ): Single<ResponseWrapper<ReceiverData>> {
 
             var body = OfflineRegisterRequestBody(
                 phoneNumber = phoneNumber,
@@ -28,13 +54,13 @@ class Api {
                 .subscribeOn(Schedulers.io())
         }
 
-        fun getPaymentPage(layoutId: String): Single<PaymentPage> {
+        fun getPaymentPage(layoutId: String): Single<ResponseWrapper<PaymentPage>> {
             return ApiFactory.getTipsApi()
                 .getPaymentPage(layoutId)
                 .subscribeOn(Schedulers.io())
         }
 
-        fun getPublicId(layoutId: String): Single<PublicId> {
+        fun getPublicId(layoutId: String): Single<ResponseWrapper<PublicId>> {
 
             var body = GetPublicIdRequestBody(layoutId = layoutId)
 
@@ -43,13 +69,18 @@ class Api {
                 .subscribeOn(Schedulers.io())
         }
 
-        fun getPaymentFee(layoutId: String, amount: Double): Single<PaymentFee> {
+        fun getPaymentFee(layoutId: String, amount: Double): Single<ResponseWrapper<PaymentFee>> {
             return ApiFactory.getTipsApi()
                 .getPaymentFee(amount, layoutId)
                 .subscribeOn(Schedulers.io())
         }
 
-        fun verify(version: String, token: String, amount: String, layoutId: String): Single<VerifyResponse> {
+        fun verify(
+            version: String,
+            token: String,
+            amount: String,
+            layoutId: String
+        ): Single<ResponseWrapper<VerifyResponse>> {
 
             val body = VerifyRequestBody(
                 version = version,
@@ -70,7 +101,7 @@ class Api {
             comment: String,
             feeFromPayer: Boolean,
             token: String
-        ): Single<PaymentResponse> {
+        ): Single<ResponseWrapper<PaymentResponse>> {
 
             val body = PaymentRequestBody(
                 layoutId = layoutId,
@@ -86,7 +117,7 @@ class Api {
                 .subscribeOn(Schedulers.io())
         }
 
-        fun postThreeDs(md: String, paRes: String): Single<PaymentResponse> {
+        fun postThreeDs(md: String, paRes: String): Single<ResponseWrapper<PaymentResponse>> {
 
             val body = PostThreeDsRequestBody(
                 md = md,

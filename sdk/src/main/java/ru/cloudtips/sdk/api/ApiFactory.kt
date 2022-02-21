@@ -37,7 +37,8 @@ class ApiFactory {
         private fun getRetrofit(): Retrofit {
             return Retrofit.Builder()
                 .baseUrl(ApiEndPoint.getUrl())
-                .addConverterFactory(GsonConverterFactory.create(gson))
+                .addConverterFactory(GsonConverterFactory.create())
+//                .addConverterFactory(GsonConverterFactory.create(gson))
                 .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                 .client(client)
                 .build()

@@ -1,8 +1,13 @@
 package ru.cloudtips.sdk.api.models
 
-import com.google.gson.annotations.SerializedName
-
 data class VerifyResponse(
-	@SerializedName("status") val status: String?,
-	@SerializedName("token") val token: String?,
-	@SerializedName("type") val type: String?)
+    private val status: String?,
+    private val token: String?
+) {
+    fun getToken() = token
+
+
+    fun isPassed(): Boolean {
+        return status.equals("passed", ignoreCase = true)
+    }
+}

@@ -13,6 +13,7 @@ import ru.cloudtips.sdk.CloudTipsSDK
 import ru.cloudtips.sdk.api.Api
 import ru.cloudtips.sdk.api.ApiEndPoint
 import ru.cloudtips.sdk.api.models.PaymentResponse
+import ru.cloudtips.sdk.api.models.PaymentResponseStatus
 import ru.cloudtips.sdk.api.models.VerifyResponse
 import ru.cloudtips.sdk.ui.CompletionActivity
 
@@ -35,31 +36,33 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         )
     }
 
-    private fun checkVerifyV3Response(response: VerifyResponse) {
-
-        if (response.status == "Passed") {
-
+    private fun checkVerifyV3Response(response: Api.ResponseWrapper<VerifyResponse>) {
+        val data = response.data
+        if (data != null && data.isPassed()) {
             auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), "")
-        } else if (response.type == "InvalidCaptcha") {
-            SafetyNet.getClient(this).verifyWithRecaptcha(ApiEndPoint.getRecapchaV2Token())
-                .addOnSuccessListener(this) { response ->
-                    if (!response.tokenResult.isEmpty()) {
-                        handleVerify(response.tokenResult)
+        } else {
+            if (response.getErrors().contains(Api.ResponseError.INVALID_CAPTCHA)) {
+                SafetyNet.getClient(this).verifyWithRecaptcha(ApiEndPoint.getRecapchaV2Token())
+                    .addOnSuccessListener(this) {
+                        val tokenResult = it.tokenResult
+                        if (!tokenResult.isNullOrEmpty()) {
+                            handleVerify(tokenResult)
+                        }
                     }
-                }
-                .addOnFailureListener(this) { e ->
-                    if (e is ApiException) {
-                        Log.e(TAG, ("Error message: " + CommonStatusCodes.getStatusCodeString(e.statusCode)))
-                    } else {
-                        Log.e(TAG, "Unknown type of error: " + e.message)
+                    .addOnFailureListener(this) { e ->
+                        if (e is ApiException) {
+                            Log.e(TAG, ("Error message: " + CommonStatusCodes.getStatusCodeString(e.statusCode)))
+                        } else {
+                            Log.e(TAG, "Unknown type of error: " + e.message)
+                        }
                     }
-                }
+            }
         }
     }
 
     private fun handleVerify(responseToken: String) {
 
-        if (responseToken != null && responseToken.isNotEmpty()) {
+        if (responseToken.isNotEmpty()) {
             verifyV2(responseToken, amount(), layoutId())
         }
     }
@@ -77,12 +80,12 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         )
     }
 
-    private fun checkVerifyV2Response(response: VerifyResponse) {
+    private fun checkVerifyV2Response(response: Api.ResponseWrapper<VerifyResponse>) {
 
-        response.token?.let { auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), it) }
+        response.data?.getToken()?.let { auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), it) }
     }
 
-    private fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, feeFromPayer:Boolean, token: String) {
+    private fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, feeFromPayer: Boolean, token: String) {
         showLoading()
         compositeDisposable.add(
             Api.auth(layoutId, cryptogram, amount, comment, feeFromPayer, token)
@@ -102,19 +105,23 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         )
     }
 
-    private fun checkPaymentResponse(response: PaymentResponse) {
-
-        if (response.status != null) {
+    private fun checkPaymentResponse(response: Api.ResponseWrapper<PaymentResponse>) {
+        val data = response.data
+        if (data == null) {
             hideLoading()
-            val intent = CompletionActivity.getStartIntent(this, photoUrl(), name(), false, response.title.toString(), response.detail.toString())
+            return
+        }
+        if (data.status != null) {
+            hideLoading()
+            val intent = CompletionActivity.getStartIntent(this, photoUrl(), name(), false, data.title.toString(), data.detail.toString())
             startActivityForResult(intent, REQUEST_CODE_COMPLETION_ACTIVITY)
             return
         }
 
-        if (response.statusCode == "Need3ds") {
-            val acsUrl = response.acsUrl
-            val paReq = response.paReq
-            val md = response.md
+        if (data.getStatusCode() == PaymentResponseStatus.NEED_3DS) {
+            val acsUrl = data.acsUrl
+            val paReq = data.paReq
+            val md = data.md
             if (acsUrl != null && paReq != null && md != null) {
                 ThreeDsDialogFragment
                     .newInstance(acsUrl, paReq, md)
@@ -122,7 +129,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
             } else {
                 hideLoading()
             }
-        } else if (response.statusCode == "Success") {
+        } else if (data.getStatusCode() == PaymentResponseStatus.SUCCESS) {
             hideLoading()
             val intent = CompletionActivity.getStartIntent(this, photoUrl(), name(), true, "", "")
             startActivityForResult(intent, REQUEST_CODE_COMPLETION_ACTIVITY)
@@ -153,8 +160,6 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
     }
 
     override fun onAuthorizationFailed(error: String?) {
-        Log.e("onAuthorizationFailed", "onAuthorizationFailed")
-        Log.e("onAuthorizationFailed", error)
     }
 
     abstract fun cryptogram(): String

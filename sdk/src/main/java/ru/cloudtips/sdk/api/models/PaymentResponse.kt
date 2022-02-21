@@ -1,13 +1,33 @@
 package ru.cloudtips.sdk.api.models
 
-import com.google.gson.annotations.SerializedName
-
 data class PaymentResponse(
-		@SerializedName("statusCode") val statusCode: String?,
-		@SerializedName("transactionId") val transactionId: String?,
-		@SerializedName("acsUrl") val acsUrl: String?,
-		@SerializedName("paReq") val paReq: String?,
-		@SerializedName("md") val md: String?,
-		@SerializedName("status") val status: String?,
-		@SerializedName("title") val title: String?,
-		@SerializedName("detail") val detail: String?)
+    private val statusCode: String?,
+    val transactionId: String?,
+    val acsUrl: String?,
+    val paReq: String?,
+    val md: String?,
+    val status: String?,
+    val title: String?,
+    val detail: String?
+) {
+
+    fun getStatusCode(): PaymentResponseStatus {
+        return PaymentResponseStatus.getByString(statusCode)
+    }
+
+}
+
+enum class PaymentResponseStatus {
+    NEED_3DS,
+    SUCCESS,
+    UNKNOWN;
+
+    companion object {
+        fun getByString(value: String?): PaymentResponseStatus {
+            if (value.equals("Need3ds", true)) return NEED_3DS
+            if (value.equals("Success", true)) return SUCCESS
+            return UNKNOWN
+        }
+    }
+
+}

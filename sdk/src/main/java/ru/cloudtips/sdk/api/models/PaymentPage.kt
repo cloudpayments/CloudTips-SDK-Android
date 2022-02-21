@@ -1,6 +1,8 @@
 package ru.cloudtips.sdk.api.models
 
+import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
+import kotlinx.android.parcel.Parcelize
 
 data class PaymentPage(
 
@@ -9,7 +11,8 @@ data class PaymentPage(
     @SerializedName("paymentMessage") val paymentMessage: PaymentPageText?,
     @SerializedName("successMessage") val successMessage: PaymentPageText?,
     @SerializedName("amount") val amount: PaymentPageAmount?,
-    @SerializedName("payerFee") val payerFee: PayerFee?
+    @SerializedName("payerFee") val payerFee: PayerFee?,
+    @SerializedName("availableFields") val availableFields: AvailableFields?
 )
 
 data class PaymentPageText(
@@ -30,4 +33,24 @@ data class PayerFee(
     @SerializedName("initialState") private val initialState: String?
 ) {
     fun getIsEnabled(): Boolean = initialState == "Enabled"
+}
+
+@Parcelize
+data class AvailableFields(
+    var comment: AvailableFieldsValue?,
+    var email: AvailableFieldsValue?,
+    var name: AvailableFieldsValue?,
+    var payerCity: AvailableFieldsValue?,
+    var phoneNumber: AvailableFieldsValue?
+) : Parcelable {
+
+    @Parcelize
+    data class AvailableFieldsValue(
+        var enabled: Boolean?,
+        var required: Boolean?
+    ) : Parcelable
+
+    enum class FieldNames {
+        COMMENT, EMAIL, NAME, CITY, PHONE_NUMBER;
+    }
 }

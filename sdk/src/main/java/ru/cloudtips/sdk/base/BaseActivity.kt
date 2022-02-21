@@ -50,6 +50,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     open fun handleError(throwable: Throwable, vararg ignoreClasses: Class<*>?) {
         hideLoading()
+        Log.e("handleError", throwable.message, throwable)
         if (ignoreClasses.isNotEmpty()) {
             val classList = listOf(*ignoreClasses)
             if (classList.contains(throwable.javaClass)) {

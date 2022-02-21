@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.text.Editable
 import android.text.Html
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.CompoundButton
@@ -18,10 +19,8 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.request.RequestOptions
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
-import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
-import ru.cloudpayments.sdk.configuration.CloudpaymentsSDK
 import ru.cloudpayments.sdk.util.TextWatcherAdapter
 import ru.cloudtips.sdk.CloudTipsSDK
 import ru.cloudtips.sdk.R
@@ -90,7 +89,10 @@ internal class TipsActivity : PayActivity() {
 
         binding.imageViewClose.setOnClickListener {
             setResult(RESULT_OK, Intent().apply {
-                putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, CloudTipsSDK.TransactionStatus.Cancelled)
+                putExtra(
+                    CloudTipsSDK.IntentKeys.TransactionStatus.name,
+                    CloudTipsSDK.TransactionStatus.Cancelled
+                )
             })
             finish()
         }
@@ -101,7 +103,12 @@ internal class TipsActivity : PayActivity() {
                 super.afterTextChanged(s)
 
                 errorMode(false, binding.editTextAmount)
-                binding.textViewAmountDesc.setTextColor(ContextCompat.getColor(this@TipsActivity, R.color.not_error))
+                binding.textViewAmountDesc.setTextColor(
+                    ContextCompat.getColor(
+                        this@TipsActivity,
+                        R.color.not_error
+                    )
+                )
 
                 val amount = s.toString()
 
@@ -163,7 +170,16 @@ internal class TipsActivity : PayActivity() {
                 return@setOnClickListener
             }
 
-            val intent = CardActivity.getStartIntent(this, photoUrl, name, layoutId, amount(), getAmountWithFee(), comment(), feeFromPayer())
+            val intent = CardActivity.getStartIntent(
+                this,
+                photoUrl,
+                name,
+                layoutId,
+                amount(),
+                getAmountWithFee(),
+                comment(),
+                feeFromPayer()
+            )
             startActivityForResult(intent, REQUEST_CODE_CARD_ACTIVITY)
         }
 
@@ -182,7 +198,10 @@ internal class TipsActivity : PayActivity() {
         binding.textViewAgreement.text = Html.fromHtml(text)
 
         binding.textViewAgreement.setOnClickListener {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://static.cloudpayments.ru/docs/cloudtips_oferta.pdf"))
+            val intent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://static.cloudpayments.ru/docs/cloudtips_oferta.pdf")
+            )
             startActivity(intent)
         }
 
@@ -198,9 +217,14 @@ internal class TipsActivity : PayActivity() {
         )
     }
 
-    private fun checkGetLayoutResponse(layouts: ArrayList<Layout>) {
-        if (layouts.size == 0) {
-            offlineRegister(configuration.tipsData.phone, configuration.tipsData.name, configuration.tipsData.partner)
+    private fun checkGetLayoutResponse(response: Api.ResponseWrapper<List<Layout>>) {
+        val layouts = response.data ?: emptyList()
+        if (layouts.isEmpty()) {
+            offlineRegister(
+                configuration.tipsData.phone,
+                configuration.tipsData.name,
+                configuration.tipsData.partner
+            )
         } else {
             layouts[0].layoutId?.let {
                 layoutId = it
@@ -218,12 +242,13 @@ internal class TipsActivity : PayActivity() {
         )
     }
 
-    private fun checkOfflineRegisterResponse(layouts: ArrayList<Layout>) {
-        if (layouts.size == 0) {
+    private fun checkOfflineRegisterResponse(response: Api.ResponseWrapper<ReceiverData>) {
+        val layouts = response.data?.layoutIds ?: emptyList()
+        if (layouts.isEmpty()) {
             showToast(R.string.app_error)
             finish()
         } else {
-            layouts[0].layoutId?.let {
+            layouts[0].let {
                 layoutId = it
                 getPaymentPage(layoutId)
             }
@@ -236,12 +261,15 @@ internal class TipsActivity : PayActivity() {
             Api.getPaymentPage(layoutId)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ paymentPage -> checkGetPaymentPageResponse(paymentPage) }, this::handleError)
+                .subscribe(
+                    { paymentPage -> checkGetPaymentPageResponse(paymentPage) },
+                    this::handleError
+                )
         )
     }
 
-    private fun checkGetPaymentPageResponse(paymentPage: PaymentPage) {
-
+    private fun checkGetPaymentPageResponse(response: Api.ResponseWrapper<PaymentPage>) {
+        val paymentPage = response.data ?: return
         photoUrl = paymentPage.avatarUrl ?: ""
         if (photoUrl == "https://api.cloudtips.ru/api/images/avatar-default" || photoUrl == "https://api-sandbox.cloudtips.ru/api/images/avatar-default") {
             photoUrl = ""
@@ -282,7 +310,9 @@ internal class TipsActivity : PayActivity() {
 
         val dec = DecimalFormat("#,###.##")
         val amount_desc =
-            getString(R.string.tips_amount_desc_start) + dec.format(minAmount) + getString(R.string.tips_amount_desc_divider) + dec.format(maxAmount) + getString(
+            getString(R.string.tips_amount_desc_start) + dec.format(minAmount) + getString(R.string.tips_amount_desc_divider) + dec.format(
+                maxAmount
+            ) + getString(
                 R.string.tips_amount_desc_end
             )
         binding.textViewAmountDesc.text = amount_desc
@@ -296,8 +326,30 @@ internal class TipsActivity : PayActivity() {
         binding.feeSwitch.isChecked = feeEnabled
         updateFeeValue()
 
+        val commentField = paymentPage.availableFields?.comment
+        if (commentField?.enabled == true) {
+            binding.commentLayout.visibility = View.VISIBLE
+        } else {
+            binding.commentLayout.visibility = View.GONE
+        }
+        commentRequired = commentField?.required == true
+        binding.editTextComment.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                isValidComment()
+            }
+
+            override fun afterTextChanged(s: Editable?) {
+            }
+
+        })
+
         hideLoading()
     }
+
+    private var commentRequired = false
 
     private var feeVisible = false
     private var feeAmount: Double = 0.0
@@ -313,7 +365,7 @@ internal class TipsActivity : PayActivity() {
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe({ fee ->
-                        feeAmount = fee.amountFromPayer ?: 0.0
+                        feeAmount = fee.data?.amountFromPayer ?: 0.0
                         updateFeeValue()
                     }, this::handleError)
             )
@@ -337,43 +389,50 @@ internal class TipsActivity : PayActivity() {
             Api.getPublicId(layoutId)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({ publicId -> checkGetPublicIdForGPayResponse(publicId) }, this::handleError)
+                .subscribe(
+                    { publicId -> checkGetPublicIdForGPayResponse(publicId) },
+                    this::handleError
+                )
         )
     }
 
-    private fun checkGetPublicIdForGPayResponse(publicId: PublicId) {
-        val publicId = publicId.publicId.toString()
+    private fun checkGetPublicIdForGPayResponse(response: Api.ResponseWrapper<PublicId>) {
+        val publicId = response.data?.publicId ?: return
         hideLoading()
         GooglePayHandler.present(publicId, amount(), this, REQUEST_CODE_GOOGLE_PAY)
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) = when (requestCode) {
-        REQUEST_CODE_CARD_ACTIVITY -> {
-            when (resultCode) {
-                Activity.RESULT_OK -> {
-                    setResult(RESULT_OK, Intent().apply {
-                        val transactionStatus =
-                            data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
-                        putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, transactionStatus)
-                    })
-                    finish()
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) =
+        when (requestCode) {
+            REQUEST_CODE_CARD_ACTIVITY -> {
+                when (resultCode) {
+                    Activity.RESULT_OK -> {
+                        setResult(RESULT_OK, Intent().apply {
+                            val transactionStatus =
+                                data?.getSerializableExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name) as? CloudTipsSDK.TransactionStatus
+                            putExtra(
+                                CloudTipsSDK.IntentKeys.TransactionStatus.name,
+                                transactionStatus
+                            )
+                        })
+                        finish()
+                    }
+                    else -> super.onActivityResult(requestCode, resultCode, data)
                 }
-                else -> super.onActivityResult(requestCode, resultCode, data)
             }
-        }
-        REQUEST_CODE_GOOGLE_PAY -> {
-            when (resultCode) {
-                Activity.RESULT_OK -> {
-                    handleGooglePaySuccess(data)
+            REQUEST_CODE_GOOGLE_PAY -> {
+                when (resultCode) {
+                    Activity.RESULT_OK -> {
+                        handleGooglePaySuccess(data)
+                    }
+                    AutoResolveHelper.RESULT_ERROR -> {
+                        handleGooglePayFailure(data)
+                    }
+                    else -> super.onActivityResult(requestCode, resultCode, data)
                 }
-                AutoResolveHelper.RESULT_ERROR -> {
-                    handleGooglePayFailure(data)
-                }
-                else -> super.onActivityResult(requestCode, resultCode, data)
             }
+            else -> super.onActivityResult(requestCode, resultCode, data)
         }
-        else -> super.onActivityResult(requestCode, resultCode, data)
-    }
 
     private fun handleGooglePaySuccess(intent: Intent?) {
         if (intent != null) {
@@ -393,6 +452,17 @@ internal class TipsActivity : PayActivity() {
     }
 
     private fun isValid(): Boolean {
+        return isValidAmount() && isValidComment()
+    }
+
+    private fun isValidComment(): Boolean {
+        val error = commentRequired && comment().isBlank()
+        errorMode(error, binding.editTextComment)
+        binding.textViewCommentError.visibility = if (error) View.VISIBLE else View.GONE
+        return !error
+    }
+
+    private fun isValidAmount(): Boolean {
 
         val amount = amount()
 
@@ -414,7 +484,10 @@ internal class TipsActivity : PayActivity() {
             return false
         } else if (amount.toInt() < minAmount || amount.toInt() > maxAmount) {
 
-            errorMode(amount.toInt() < minAmount || amount.toInt() > maxAmount, binding.editTextAmount)
+            errorMode(
+                amount.toInt() < minAmount || amount.toInt() > maxAmount,
+                binding.editTextAmount
+            )
 
             if (amount.toInt() < minAmount || amount.toInt() > maxAmount) {
                 binding.textViewAmountDesc.setTextColor(ContextCompat.getColor(this, R.color.error))

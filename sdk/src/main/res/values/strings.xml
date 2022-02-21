@@ -44,5 +44,6 @@
     <string name="tips_fee_title">Перевести получателю полную сумму</string>
     <string name="tips_fee_description">Так вы компенсируете комиссию сервиса, а с вашей карты спишется %1$s Р</string>
     <string name="tips_fee_description_disabled">Так вы компенсируете комиссию сервиса, а с вашей карты спишется 0 ₽</string>
+    <string name="field_required_error">Поле обязательно для заполнения</string>
 
 </resources>

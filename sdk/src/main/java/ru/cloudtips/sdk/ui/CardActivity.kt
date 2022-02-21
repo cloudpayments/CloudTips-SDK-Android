@@ -196,8 +196,8 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         )
     }
 
-    private fun checkGetPublicIdResponse(publicId: PublicId) {
-        this.publicId = publicId.publicId.toString()
+    private fun checkGetPublicIdResponse(response: Api.ResponseWrapper<PublicId>) {
+        this.publicId = response.data?.publicId ?: ""
         hideLoading()
     }
 
