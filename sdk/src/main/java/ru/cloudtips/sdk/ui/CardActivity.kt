@@ -209,7 +209,7 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
 
     private fun isValid(): Boolean {
         val cardNumberIsValid = Card.isValidNumber(binding.editTextCardNumber.text.toString())
-        val cardExpIsValid = Card.isValidExpDate(binding.editTextExpDate.text.toString())
+        val cardExpIsValid = true//Card.isValidExpDate(binding.editTextExpDate.text.toString())
         val cardCvvIsValid = binding.editTextCode.text.toString().length == 3
 
         errorMode(!cardNumberIsValid, binding.editTextCardNumber)
