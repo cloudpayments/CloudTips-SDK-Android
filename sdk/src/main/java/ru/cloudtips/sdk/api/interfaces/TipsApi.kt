@@ -8,7 +8,7 @@ import ru.cloudtips.sdk.api.models.*
 interface TipsApi {
 
     @GET("layouts/list/{phoneNumber}")
-    fun getLayout(@Path("phoneNumber") phoneNumber: String): Single<Api.ResponseWrapper<List<Layout>>>
+    fun getLayout(@Path("phoneNumber") phoneNumber: String?): Single<Api.ResponseWrapper<List<Layout>>>
 
     @POST("/api/receivers")
     fun offlineRegister(@Body body: OfflineRegisterRequestBody): Single<Api.ResponseWrapper<ReceiverData>>

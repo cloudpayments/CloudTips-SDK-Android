@@ -246,13 +246,13 @@
                     android:inputType="textShortMessage" />
 
                 <TextView
-                    android:visibility="gone"
                     android:id="@+id/textViewCommentError"
-                    android:layout_marginTop="4dp"
                     style="@style/CTTextViewError"
-                    android:text="@string/field_required_error"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/field_required_error"
+                    android:visibility="gone" />
 
             </LinearLayout>
 
@@ -311,25 +311,6 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <RelativeLayout
-                android:id="@+id/buttonGPay"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_marginStart="@dimen/marginStart"
-                android:layout_marginTop="24dp"
-                android:layout_marginEnd="@dimen/marginEnd"
-                android:background="@drawable/bg_button_black"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/feeLayout">
-
-                <ImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerInParent="true"
-                    android:src="@drawable/g_pay_logo" />
-            </RelativeLayout>
-
-            <RelativeLayout
                 android:id="@+id/buttonPayCard"
                 android:layout_width="0dp"
                 android:layout_height="56dp"
@@ -340,7 +321,7 @@
                 android:elevation="8dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/buttonGPay">
+                app:layout_constraintTop_toBottomOf="@id/feeLayout">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -350,6 +331,38 @@
                     android:text="@string/tips_pay_card"
                     android:textColor="#272744"
                     android:textSize="16sp" />
+            </RelativeLayout>
+
+            <com.yandex.pay.core.ui.YandexPayButton
+                android:id="@+id/buttonYPay"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="@dimen/marginStart"
+                android:layout_marginTop="24dp"
+                android:layout_marginEnd="@dimen/marginEnd"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/buttonPayCard"
+                app:yandexpay_personalization="none"
+                app:yandexpay_color_scheme="dark"/>
+
+            <RelativeLayout
+                android:id="@+id/buttonGPay"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="@dimen/marginStart"
+                android:layout_marginTop="24dp"
+                android:layout_marginEnd="@dimen/marginEnd"
+                android:background="@drawable/bg_button_black"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/buttonYPay">
+
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:src="@drawable/g_pay_logo" />
             </RelativeLayout>
 
             <TextView
@@ -365,7 +378,7 @@
                 android:textSize="12sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/buttonPayCard" />
+                app:layout_constraintTop_toBottomOf="@id/buttonGPay" />
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/constraintLayoutBottom"

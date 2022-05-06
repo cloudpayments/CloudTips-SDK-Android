@@ -23,7 +23,7 @@ class CompletionActivity : BaseActivity() {
         private const val EXTRA_TITLE = "EXTRA_TITLE"
         private const val EXTRA_TEXT = "EXTRA_TEXT"
 
-        fun getStartIntent(context: Context, photoUrl: String, name: String, success: Boolean, title: String, text: String): Intent {
+        fun getStartIntent(context: Context, photoUrl: String?, name: String?, success: Boolean, title: String?, text: String?): Intent {
             val intent = Intent(context, CompletionActivity::class.java)
             intent.putExtra(EXTRA_PHOTO_URL, photoUrl)
             intent.putExtra(EXTRA_NAME, name)
@@ -72,14 +72,16 @@ class CompletionActivity : BaseActivity() {
         if (photoUrl != "") {
 
             Glide
-                    .with(this)
-                    .load(photoUrl)
-                    .apply(RequestOptions.bitmapTransform(CenterCrop()))
-                    .circleCrop()
-                    .into(binding.imageViewAvatar)
+                .with(this)
+                .load(photoUrl)
+                .apply(RequestOptions.bitmapTransform(CenterCrop()))
+                .placeholder(R.drawable.no_avatar_tips_activity)
+                .error(R.drawable.no_avatar_tips_activity)
+                .circleCrop()
+                .into(binding.imageViewAvatar)
         }
 
-        if (name.isEmpty()) {
+        if (name.isNullOrEmpty()) {
             binding.textViewName.visibility = View.GONE
         } else {
             binding.textViewName.visibility = View.VISIBLE
@@ -91,7 +93,7 @@ class CompletionActivity : BaseActivity() {
 
             binding.textViewReaction.visibility = View.VISIBLE
 
-            if (name.isEmpty()) {
+            if (name.isNullOrEmpty()) {
                 binding.textViewReaction.setText(R.string.completion_success_true_name_is_empty)
             } else {
                 binding.textViewReaction.setText(R.string.completion_success_true)
@@ -129,8 +131,9 @@ class CompletionActivity : BaseActivity() {
         } else {
             CloudTipsSDK.TransactionStatus.Cancelled
         }
-        setResult(RESULT_OK,Intent().apply {
-            putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, status)})
+        setResult(RESULT_OK, Intent().apply {
+            putExtra(CloudTipsSDK.IntentKeys.TransactionStatus.name, status)
+        })
         finish()
     }
 }

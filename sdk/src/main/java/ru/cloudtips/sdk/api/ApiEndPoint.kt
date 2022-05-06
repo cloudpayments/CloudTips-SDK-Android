@@ -1,7 +1,7 @@
 package ru.cloudtips.sdk.api
 
 const val HOST = "https://api.cloudtips.ru/"
-const val HOST_PREPROD = "https://api-sandbox.cloudtips.ru/"
+const val HOST_PREPROD = "https://api-preprod.cloudtips.ru/"
 const val API_URL = "api/"
 
 const val API_ENDPOINT = HOST + API_URL

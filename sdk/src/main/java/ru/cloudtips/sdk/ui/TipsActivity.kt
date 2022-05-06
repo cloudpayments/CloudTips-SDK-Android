@@ -9,6 +9,7 @@ import android.os.Handler
 import android.text.Editable
 import android.text.Html
 import android.text.TextWatcher
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.widget.CompoundButton
@@ -19,9 +20,13 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.request.RequestOptions
 import com.google.android.gms.wallet.AutoResolveHelper
 import com.google.android.gms.wallet.PaymentData
+import com.yandex.pay.core.*
+import com.yandex.pay.core.data.*
+import com.yandex.pay.core.ui.YandexPayButton
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import ru.cloudpayments.sdk.util.TextWatcherAdapter
+import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.CloudTipsSDK
 import ru.cloudtips.sdk.R
 import ru.cloudtips.sdk.TipsConfiguration
@@ -38,6 +43,7 @@ internal class TipsActivity : PayActivity() {
     companion object {
         private const val REQUEST_CODE_CARD_ACTIVITY = 101
         private const val REQUEST_CODE_GOOGLE_PAY = 102
+        private const val REQUEST_CODE_YA_PAY = 103
 
         private const val EXTRA_CONFIGURATION = "EXTRA_CONFIGURATION"
 
@@ -47,6 +53,17 @@ internal class TipsActivity : PayActivity() {
             return intent
         }
     }
+
+    private val yandexPayLauncher = registerForActivityResult(OpenYandexPayContract()) { result: YandexPayResult ->
+        when (result) {
+            is YandexPayResult.Success -> handleYaPaySuccess(result.paymentToken)
+            is YandexPayResult.Failure -> when (result) {
+                is YandexPayResult.Failure.Validation -> handleYaPayFailure(result.details.name)
+                is YandexPayResult.Failure.Internal -> handleYaPayFailure(result.message)
+            }
+        }
+    }
+
 
     private val configuration by lazy {
         intent.getParcelableExtra<TipsConfiguration>(EXTRA_CONFIGURATION)
@@ -62,7 +79,7 @@ internal class TipsActivity : PayActivity() {
 
     private lateinit var layoutId: String
 
-    private lateinit var gPayToken: String
+    private lateinit var payToken: String
 
     override fun showLoading() {
         binding.loading.visibility = View.VISIBLE
@@ -79,7 +96,7 @@ internal class TipsActivity : PayActivity() {
         binding = ActivityTipsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        ApiEndPoint.testMode = configuration.testMode
+        ApiEndPoint.testMode = configuration?.testMode ?: false
 
         showLoading()
         initUI()
@@ -151,16 +168,14 @@ internal class TipsActivity : PayActivity() {
             .toObservable()
             .observeOn(AndroidSchedulers.mainThread())
             .map {
-                if (it) {
-                    binding.buttonGPay.visibility = View.VISIBLE
-                } else {
-                    binding.buttonGPay.visibility = View.GONE
-                }
-                getLayout(configuration.tipsData.phone)
+                isGPayApiEnabled = it
+                updateGPayButton()
+                getLayout(configuration?.tipsData?.phone)
             }
             .onErrorReturn {
-                binding.buttonGPay.visibility = View.GONE
-                getLayout(configuration.tipsData.phone)
+                isGPayApiEnabled = false
+                updateGPayButton()
+                getLayout(configuration?.tipsData?.phone)
             }
             .subscribe()
 
@@ -181,6 +196,30 @@ internal class TipsActivity : PayActivity() {
                 feeFromPayer()
             )
             startActivityForResult(intent, REQUEST_CODE_CARD_ACTIVITY)
+        }
+
+        if (YandexPayLib.isSupported) {
+            val environment: YandexPayEnvironment
+            val logging: Boolean
+            if (BuildConfig.DEBUG) {
+                environment = YandexPayEnvironment.SANDBOX
+                logging = true
+            } else {
+                environment = YandexPayEnvironment.PROD
+                logging = false
+            }
+            YandexPayLib.initialize(this, YandexPayLibConfig(environment = environment, logging = logging))
+            binding.buttonYPay.apply {
+                visibility = View.VISIBLE
+                setOnClickListener(YandexPayButton.OnClickListener {
+                    if (!isValid()) {
+                        return@OnClickListener
+                    }
+                    getPublicIdForYPay(layoutId)
+                })
+            }
+        } else {
+            binding.buttonYPay.visibility = View.GONE
         }
 
         binding.buttonGPay.setOnClickListener {
@@ -208,7 +247,7 @@ internal class TipsActivity : PayActivity() {
         initRecaptchaTextView(binding.textViewRecaptcha)
     }
 
-    private fun getLayout(phoneNumber: String) {
+    private fun getLayout(phoneNumber: String?) {
         compositeDisposable.add(
             Api.getLayout(phoneNumber)
                 .subscribeOn(Schedulers.io())
@@ -221,9 +260,9 @@ internal class TipsActivity : PayActivity() {
         val layouts = response.data ?: emptyList()
         if (layouts.isEmpty()) {
             offlineRegister(
-                configuration.tipsData.phone,
-                configuration.tipsData.name,
-                configuration.tipsData.partner
+                configuration?.tipsData?.phone,
+                configuration?.tipsData?.name,
+                configuration?.tipsData?.partner
             )
         } else {
             layouts[0].layoutId?.let {
@@ -233,7 +272,7 @@ internal class TipsActivity : PayActivity() {
         }
     }
 
-    private fun offlineRegister(phoneNumber: String, name: String, partner: String) {
+    private fun offlineRegister(phoneNumber: String?, name: String?, partner: String?) {
         compositeDisposable.add(
             Api.offlineRegister(phoneNumber, name, partner)
                 .subscribeOn(Schedulers.io())
@@ -279,8 +318,10 @@ internal class TipsActivity : PayActivity() {
 
             Glide
                 .with(this)
-                .load(paymentPage.avatarUrl)
+                .load(photoUrl)
                 .apply(RequestOptions.bitmapTransform(CenterCrop()))
+                .placeholder(R.drawable.no_avatar_tips_activity)
+                .error(R.drawable.no_avatar_tips_activity)
                 .circleCrop()
                 .into(binding.imageViewAvatar)
         }
@@ -346,6 +387,9 @@ internal class TipsActivity : PayActivity() {
 
         })
 
+        isGPayPageEnabled = paymentPage.getGooglePayEnabled()
+        updateGPayButton()
+
         hideLoading()
     }
 
@@ -371,7 +415,7 @@ internal class TipsActivity : PayActivity() {
             )
         }
         val delay = if (immediately) 0L else 1000L
-        requestFeeHandler.postDelayed(requestFeeRunnable, delay)
+        requestFeeRunnable?.let { requestFeeHandler.postDelayed(it, delay) }
     }
 
     private fun updateFeeValue() {
@@ -382,6 +426,50 @@ internal class TipsActivity : PayActivity() {
     private fun getAmountWithFee(): Double {
         return if (binding.feeSwitch.isChecked) feeAmount else amount().toDoubleOrNull() ?: 0.0
     }
+
+    private fun getPublicIdForYPay(layoutId: String) {
+        showLoading()
+        compositeDisposable.add(
+            Api.getPublicId(layoutId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                    { publicId -> checkGetPublicIdForYPayResponse(publicId) },
+                    this::handleError
+                )
+        )
+    }
+
+    private fun checkGetPublicIdForYPayResponse(response: Api.ResponseWrapper<PublicId>) {
+        val publicId = response.data?.publicId ?: return
+        val name = if (name().isNotEmpty()) name() else "CloudTips"
+        hideLoading()
+        yandexPayLauncher.launch(
+            OrderDetails(
+                merchant = Merchant(
+                    id = MerchantID.from("1193a702-d3c0-4637-a7c0-2ac95b73ee29"),
+                    name = "cloudpayments",
+                    origin = "https://cloudpayments.ru/"
+                ),
+                order = Order(
+                    id = OrderID.from(name),
+                    amount = Amount.from(amount()),
+                    label = name,
+                    listOf()
+                ),
+                paymentMethods = listOf(
+                    PaymentMethod(
+                        allowedAuthMethods = listOf(AuthMethod.PanOnly),
+                        type = PaymentMethodType.Card,
+                        gateway = Gateway.from("cloudpayments"),
+                        allowedCardNetworks = listOf(CardNetwork.Visa, CardNetwork.MasterCard, CardNetwork.MIR),
+                        gatewayMerchantId = GatewayMerchantID.from(publicId),
+                    )
+                )
+            )
+        )
+    }
+
 
     private fun getPublicIdForGPay(layoutId: String) {
         showLoading()
@@ -402,7 +490,7 @@ internal class TipsActivity : PayActivity() {
         GooglePayHandler.present(publicId, amount(), this, REQUEST_CODE_GOOGLE_PAY)
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) =
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         when (requestCode) {
             REQUEST_CODE_CARD_ACTIVITY -> {
                 when (resultCode) {
@@ -433,6 +521,7 @@ internal class TipsActivity : PayActivity() {
             }
             else -> super.onActivityResult(requestCode, resultCode, data)
         }
+    }
 
     private fun handleGooglePaySuccess(intent: Intent?) {
         if (intent != null) {
@@ -440,8 +529,8 @@ internal class TipsActivity : PayActivity() {
             val token = paymentData?.paymentMethodToken?.token
 
             if (token != null) {
-                gPayToken = token
-                verifyV3(amount(), layoutId())
+                payToken = token
+                authWithoutVerify()
             }
         }
     }
@@ -449,6 +538,21 @@ internal class TipsActivity : PayActivity() {
     private fun handleGooglePayFailure(intent: Intent?) {
         val status = AutoResolveHelper.getStatusFromIntent(intent)
         Log.w("loadPaymentData failed", String.format("Payment error code: %s", status.toString()))
+    }
+
+    private fun handleYaPaySuccess(paymentToken: PaymentToken) {
+        payToken = String(Base64.decode(paymentToken.toString(), Base64.DEFAULT))
+        authWithoutVerify()
+    }
+
+    private fun handleYaPayFailure(message: String?) {
+        Log.w("loadPaymentData failed", String.format("Ya payment error: %s", message))
+    }
+
+    private var isGPayApiEnabled = false
+    private var isGPayPageEnabled = false
+    private fun updateGPayButton() {
+        binding.buttonGPay.visibility = if (isGPayApiEnabled && isGPayPageEnabled) View.VISIBLE else View.GONE
     }
 
     private fun isValid(): Boolean {
@@ -507,7 +611,7 @@ internal class TipsActivity : PayActivity() {
     }
 
     override fun cryptogram(): String {
-        return gPayToken
+        return payToken
     }
 
     override fun layoutId(): String {

@@ -186,7 +186,7 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         initRecaptchaTextView(binding.textViewRecaptcha)
     }
 
-    private fun getPublicId(layoutId: String) {
+    private fun getPublicId(layoutId: String?) {
         showLoading()
         compositeDisposable.add(
             Api.getPublicId(layoutId)
@@ -209,7 +209,7 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
 
     private fun isValid(): Boolean {
         val cardNumberIsValid = Card.isValidNumber(binding.editTextCardNumber.text.toString())
-        val cardExpIsValid = Card.isValidExpDate(binding.editTextExpDate.text.toString())
+        val cardExpIsValid = true//Card.isValidExpDate(binding.editTextExpDate.text.toString())
         val cardCvvIsValid = binding.editTextCode.text.toString().length == 3
 
         errorMode(!cardNumberIsValid, binding.editTextCardNumber)
@@ -230,23 +230,23 @@ class CardActivity : PayActivity(), ThreeDsDialogFragment.ThreeDSDialogListener 
         return cryptogram ?: ""
     }
 
-    override fun layoutId(): String {
+    override fun layoutId(): String? {
         return layoutId
     }
 
-    override fun amount(): String {
+    override fun amount(): String? {
         return amount
     }
 
-    override fun comment(): String {
+    override fun comment(): String? {
         return comment
     }
 
-    override fun photoUrl(): String {
+    override fun photoUrl(): String? {
         return photoUrl
     }
 
-    override fun name(): String {
+    override fun name(): String? {
         return name
     }
 

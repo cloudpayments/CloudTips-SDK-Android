@@ -31,16 +31,16 @@ class Api {
 
     companion object {
 
-        fun getLayout(phoneNumber: String): Single<ResponseWrapper<List<Layout>>> {
+        fun getLayout(phoneNumber: String?): Single<ResponseWrapper<List<Layout>>> {
             return ApiFactory.getTipsApi()
                 .getLayout(phoneNumber)
                 .subscribeOn(Schedulers.io())
         }
 
         fun offlineRegister(
-            phoneNumber: String,
-            name: String,
-            partner: String
+            phoneNumber: String?,
+            name: String?,
+            partner: String?
         ): Single<ResponseWrapper<ReceiverData>> {
 
             var body = OfflineRegisterRequestBody(
@@ -60,7 +60,7 @@ class Api {
                 .subscribeOn(Schedulers.io())
         }
 
-        fun getPublicId(layoutId: String): Single<ResponseWrapper<PublicId>> {
+        fun getPublicId(layoutId: String?): Single<ResponseWrapper<PublicId>> {
 
             var body = GetPublicIdRequestBody(layoutId = layoutId)
 
@@ -78,8 +78,8 @@ class Api {
         fun verify(
             version: String,
             token: String,
-            amount: String,
-            layoutId: String
+            amount: String?,
+            layoutId: String?
         ): Single<ResponseWrapper<VerifyResponse>> {
 
             val body = VerifyRequestBody(
@@ -95,12 +95,12 @@ class Api {
         }
 
         fun auth(
-            layoutId: String,
-            cryptogram: String,
-            amount: String,
-            comment: String,
+            layoutId: String?,
+            cryptogram: String?,
+            amount: String?,
+            comment: String?,
             feeFromPayer: Boolean,
-            token: String
+            token: String?
         ): Single<ResponseWrapper<PaymentResponse>> {
 
             val body = PaymentRequestBody(

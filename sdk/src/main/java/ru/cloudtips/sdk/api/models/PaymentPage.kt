@@ -12,8 +12,11 @@ data class PaymentPage(
     @SerializedName("successMessage") val successMessage: PaymentPageText?,
     @SerializedName("amount") val amount: PaymentPageAmount?,
     @SerializedName("payerFee") val payerFee: PayerFee?,
-    @SerializedName("availableFields") val availableFields: AvailableFields?
-)
+    @SerializedName("availableFields") val availableFields: AvailableFields?,
+    @SerializedName("googlePayEnabled") private val googlePayEnabled: Boolean?
+) {
+    fun getGooglePayEnabled() = googlePayEnabled ?: false
+}
 
 data class PaymentPageText(
     @SerializedName("ru") val ru: String?,

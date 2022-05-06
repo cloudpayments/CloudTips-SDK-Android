@@ -23,7 +23,11 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         const val REQUEST_CODE_COMPLETION_ACTIVITY = 100
     }
 
-    protected fun verifyV3(amount: String, layoutId: String) {
+    protected fun authWithoutVerify() {
+        auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), null)
+    }
+
+    protected fun verifyV3(amount: String?, layoutId: String?) {
         showLoading()
         val recaptchaVersion = "3"
         compositeDisposable.add(
@@ -67,7 +71,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         }
     }
 
-    private fun verifyV2(token: String, amount: String, layoutId: String) {
+    private fun verifyV2(token: String, amount: String?, layoutId: String?) {
         showLoading()
         val recaptchaVersion = "4"
         compositeDisposable.add(
@@ -85,7 +89,7 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
         response.data?.getToken()?.let { auth(layoutId(), cryptogram(), amount(), comment(), feeFromPayer(), it) }
     }
 
-    private fun auth(layoutId: String, cryptogram: String, amount: String, comment: String, feeFromPayer: Boolean, token: String) {
+    private fun auth(layoutId: String?, cryptogram: String?, amount: String?, comment: String?, feeFromPayer: Boolean, token: String?) {
         showLoading()
         compositeDisposable.add(
             Api.auth(layoutId, cryptogram, amount, comment, feeFromPayer, token)
@@ -162,12 +166,12 @@ abstract class PayActivity : BaseActivity(), ThreeDsDialogFragment.ThreeDSDialog
     override fun onAuthorizationFailed(error: String?) {
     }
 
-    abstract fun cryptogram(): String
-    abstract fun layoutId(): String
-    abstract fun amount(): String
-    abstract fun comment(): String
-    abstract fun photoUrl(): String
-    abstract fun name(): String
+    abstract fun cryptogram(): String?
+    abstract fun layoutId(): String?
+    abstract fun amount(): String?
+    abstract fun comment(): String?
+    abstract fun photoUrl(): String?
+    abstract fun name(): String?
     abstract fun feeFromPayer(): Boolean
 
 
