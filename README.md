@@ -26,7 +26,7 @@ dependencies {
 
 ### Google Pay
 
-CloudTips SDK поддерживает Google Pay.
+CloudTips SDK поддерживает Google Pay
 Чтобы включить Google Pay в приложении, добавьте следующие метаданные в тег <application> файла AndroidManifest.xml.
 
 ```
@@ -34,22 +34,6 @@ CloudTips SDK поддерживает Google Pay.
     android:name="com.google.android.gms.wallet.api.enabled"
     android:value="true" />
 ```
-
-### Yandex Pay
-
-CloudTips SDK поддерживает Yandex Pay.
-Чтобы включить Yandex Pay в приложении, добавьте в build.gradle:
-
-```
-defaultConfig { 
-	...
-	manifestPlaceholders = [YANDEX_CLIENT_ID: "ID взять из админки Яндекса https://oauth.yandex.ru/"]
-	...
-}
-```
-
-Ключи подписи и название пакета добавить в админку Яндекса в необходимые поля: SHA256 Fingerprints и Android package name
-
 ### Структура проекта:
 
 * **app** - Пример реализации приложения с использованием SDK
