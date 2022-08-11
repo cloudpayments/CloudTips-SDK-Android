@@ -103,7 +103,8 @@ internal class TipsActivity : PayActivity() {
     }
 
     private fun initUI() {
-
+        setPaymentButtonsEnabledState(false)
+        
         binding.imageViewClose.setOnClickListener {
             setResult(RESULT_OK, Intent().apply {
                 putExtra(
@@ -267,6 +268,7 @@ internal class TipsActivity : PayActivity() {
         } else {
             layouts[0].layoutId?.let {
                 layoutId = it
+                setPaymentButtonsEnabledState(true)
                 getPaymentPage(layoutId)
             }
         }
@@ -289,6 +291,7 @@ internal class TipsActivity : PayActivity() {
         } else {
             layouts[0].let {
                 layoutId = it
+                setPaymentButtonsEnabledState(true)
                 getPaymentPage(layoutId)
             }
         }
@@ -305,6 +308,12 @@ internal class TipsActivity : PayActivity() {
                     this::handleError
                 )
         )
+    }
+
+    private fun setPaymentButtonsEnabledState(isEnabled: Boolean) {
+        binding.buttonGPay.isEnabled = isEnabled
+        binding.buttonYPay.isEnabled = isEnabled
+        binding.buttonPayCard.isEnabled = isEnabled
     }
 
     private fun checkGetPaymentPageResponse(response: Api.ResponseWrapper<PaymentPage>) {
