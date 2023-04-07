@@ -539,6 +539,16 @@
                             android:layout_marginTop="24dp"
                             android:text="@string/link_edit_payment_page_bank_button" />
 
+                        <com.yandex.pay.core.ui.YandexPayButton
+                            android:id="@+id/ypay_button"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/button_height"
+                            android:layout_marginHorizontal="16dp"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            app:yandexpay_color_scheme="dark"
+                            app:yandexpay_corner_radius="@dimen/button_corner_radius" />
+
                         <FrameLayout
                             android:id="@+id/gpay_button"
                             android:layout_width="match_parent"

@@ -27,6 +27,10 @@ import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.material.textfield.TextInputLayout
+import com.yandex.pay.core.*
+import com.yandex.pay.core.data.*
+import com.yandex.pay.core.data.Amount
+import com.yandex.pay.core.ui.YandexPayButton
 import jp.wasabeef.glide.transformations.RoundedCornersTransformation
 import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.R
@@ -64,6 +68,7 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         super.onAttach(context)
         gPayClient = GPayClient(context)
         listener = context as? IPaymentInfoListener
+        initYPayment()
     }
 
     override fun onDetach() {
@@ -115,6 +120,8 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 } else {
                     updateGooglePayButton(false)
                 }
+                updateYPayButton(YandexPayLib.isSupported)
+                amplitude.trackLayoutShow(data)
             } else {
                 //TODO: show error
             }
@@ -157,6 +164,12 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 viewModel.trackPayClick(PayType.GOOGLEPAY)
             }
         }
+        ypayButton.setOnClickListener(YandexPayButton.OnClickListener {
+            if (validatePayClick()) {
+                launchPaymentClick { requestYPayClick() }
+                viewModel.trackPayClick(PayType.YANDEXPAY)
+            }
+        })
     }
 
     private fun fillLogoView() = with(viewBinding) {
@@ -290,12 +303,96 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         listener?.onPaymentFailure(payType)
     }
 
+    private fun updateYPayButton(available: Boolean) = with(viewBinding) {
+        ypayButton.visibility = if (available) View.VISIBLE else View.GONE
+    }
+
+    private fun initYPayment() {
+        if (YandexPayLib.isSupported) {
+            val environment: YandexPayEnvironment
+            val logging: Boolean
+            if (BuildConfig.DEBUG) {
+                environment = YandexPayEnvironment.SANDBOX
+                logging = true
+            } else {
+                environment = YandexPayEnvironment.PROD
+                logging = false
+            }
+            YandexPayLib.initialize(
+                requireContext(), YandexPayLibConfig(
+                    environment = environment,
+                    logging = logging,
+                    locale = YandexPayLocale.RU,
+                    merchantDetails = Merchant(
+                        id = MerchantId.from(getString(R.string.ypay_merchant_id)),
+                        name = getString(R.string.ypay_merchant_name),
+                        url = getString(R.string.ypay_merchant_url)
+                    )
+                )
+            )
+        }
+    }
+
+    private fun requestYPayClick() = with(viewBinding) {
+        ypayButton.isClickable = false
+        viewModel.getMerchantId().observe(viewLifecycleOwner) {
+            val publicId = it?.publicId ?: ""
+            val name = if (!nameTextView.text.isNullOrEmpty()) nameTextView.text.toString() else "CloudTips"
+            yandexPayLauncher.launch(
+                OrderDetails(
+                    order = Order(
+                        id = OrderID.from(name),
+                        amount = Amount.from(getAmount().toString()),
+                        label = name,
+                        listOf()
+                    ),
+                    paymentMethods = listOf(
+                        PaymentMethod(
+                            allowedAuthMethods = listOf(AuthMethod.PanOnly),
+                            type = PaymentMethodType.Card,
+                            gateway = Gateway.from("cloudpayments"),
+                            allowedCardNetworks = listOf(CardNetwork.Visa, CardNetwork.MasterCard, CardNetwork.MIR),
+                            gatewayMerchantId = GatewayMerchantID.from(publicId),
+                        )
+                    )
+                )
+            )
+        }
+    }
+
+    private val yandexPayLauncher = registerForActivityResult(OpenYandexPayContract()) { result: YandexPayResult ->
+        viewBinding.ypayButton.isClickable = true
+        when (result) {
+            is YandexPayResult.Success -> handleYPaySuccess(result.paymentToken)
+            is YandexPayResult.Failure -> when (result) {
+                is YandexPayResult.Failure.Validation -> handleYPayFailure(result.details.name)
+                is YandexPayResult.Failure.Internal -> handleYPayFailure(result.message)
+            }
+            YandexPayResult.Cancelled -> {}
+        }
+    }
+
+    private fun handleYPaySuccess(paymentToken: PaymentToken) {
+        val token = String(Base64.decode(paymentToken.toString(), Base64.DEFAULT))
+        showSpinner()
+        viewModel.launchYPayment(token).observe(viewLifecycleOwner) { response ->
+            hideSpinner()
+            handlePaymentResponse(response, PayType.YANDEXPAY)
+        }
+    }
+
+    private fun handleYPayFailure(message: String?) {
+        Log.w("loadPaymentData failed", String.format("Ya payment error: %s", message))
+        onPaymentFailure(PayType.YANDEXPAY)
+    }
+
     override fun onAuthorizationCompleted(md: String, paRes: String, payType: PayType) {
         showSpinner()
         viewModel.postPayment3ds(md, paRes).observe(this) {
             hideSpinner()
             handlePaymentResponse(it, payType)
         }
+
     }
 
     override fun onAuthorizationFailed(error: String?, payType: PayType) {
