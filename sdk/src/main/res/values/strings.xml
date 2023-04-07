@@ -1,10 +1,4 @@
 <resources>
-    <string name="continue_button">Продолжить</string>
-    <string name="phone_input_hint">Номер телефона</string>
-    <string name="phone_input_prefix">+7</string>
-    <string name="or">или</string>
-    <string name="code_input_hint">ID визитки</string>
-
     <string name="main_balance">%1$d ₽</string>
     <string name="main_balance_title">Сумма чаевых</string>
 
@@ -28,7 +22,6 @@
     <string name="tips_field_city">Город</string>
     <string name="tips_field_comment">Комментарий</string>
     <string name="tips_field_email_hint">На нее придет письмо после перевода чаевых</string>
-    <string name="bubble_text">+%1$d ₽</string>
     <string name="link_edit_payment_page_info_text">Согласен с %1$s</string>
     <string name="link_edit_payment_page_info_text_subs">условиями</string>
     <string name="link_edit_payment_page_captcha_text">This site is protected by reCAPTCHA and the Google\n%1$s and %2$s apply</string>
@@ -52,4 +45,5 @@
     <string name="fragment_payment_error_subtitle">Попробуйте позже</string>
     <string name="fragment_payment_error_main_button">Понятно</string>
     <string name="field_amount_incorrect">Некорректная сумма</string>
+    <string name="link_edit_payment_sum">Сумма в чеке %s ₽</string>
 </resources>

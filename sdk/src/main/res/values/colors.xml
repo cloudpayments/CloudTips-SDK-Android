@@ -10,7 +10,7 @@
     <color name="colorLight">#F6F7F8</color>
     <color name="colorSwitchInactive">#797A7A</color>
     <color name="colorBlack">#000000</color>
-    <color name="colorBubbleBackground">#08001024</color>
+    <color name="colorBubbleBackground">#F6F7F8</color>
     <color name="colorHint">#8A000000</color>
     <color name="colorLightBackground">#88ffffff</color>
     <color name="cpsdk_white">#ffffff</color>

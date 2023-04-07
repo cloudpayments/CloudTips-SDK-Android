@@ -10,8 +10,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://nexus.tcsbank.ru/repository/mvn-mobile/' }
-        maven { url 'https://nexus.tcsbank.ru/repository/mvn-mobile-snapshots/' }
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = "CloudTips-SDK-Demo"

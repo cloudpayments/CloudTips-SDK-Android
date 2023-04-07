@@ -6,4 +6,5 @@
     <string name="ypay_merchant_id" translatable="false">1193a702-d3c0-4637-a7c0-2ac95b73ee29</string>
     <string name="ypay_merchant_name" translatable="false">cloudpayments</string>
     <string name="ypay_merchant_url" translatable="false">https://cloudpayments.ru/</string>
+    <string name="amplitude_apikey" translatable="false">fbb0e683df31b9844e5fce66776896f8</string>
 </resources>

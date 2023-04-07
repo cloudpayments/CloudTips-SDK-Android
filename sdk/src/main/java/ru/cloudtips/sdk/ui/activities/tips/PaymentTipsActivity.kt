@@ -6,11 +6,13 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.lifecycle.Observer
 import ru.cloudtips.sdk.R
+import ru.cloudtips.sdk.amplitude
+import ru.cloudtips.sdk.helpers.PayType
 import ru.cloudtips.sdk.helpers.cleanBackStack
 import ru.cloudtips.sdk.helpers.replaceFragment
 import ru.cloudtips.sdk.helpers.replaceFragmentWithBackStack
+import ru.cloudtips.sdk.networkClient
 import ru.cloudtips.sdk.ui.activities.tips.fragments.*
 import ru.cloudtips.sdk.ui.activities.tips.listeners.IPaymentCardListener
 import ru.cloudtips.sdk.ui.activities.tips.listeners.IPaymentInfoListener
@@ -30,7 +32,9 @@ class PaymentTipsActivity : AppCompatActivity(), IPaymentInfoListener, IPaymentC
 
     private fun startPayment() {
         val layoutId = intent.getStringExtra(EXTRA_LAYOUT_ID)
-        viewModel.requestPaymentPageData(layoutId).observe(this) { response ->
+        val sum = intent.getDoubleExtra(EXTRA_SUM, 0.0)
+        amplitude.setLayoutId(layoutId)
+        viewModel.requestPaymentPageData(layoutId, sum).observe(this) { response ->
             if (!response.succeed || response.data == null) {
                 onShowError()
             }
@@ -46,12 +50,12 @@ class PaymentTipsActivity : AppCompatActivity(), IPaymentInfoListener, IPaymentC
         replaceFragmentWithBackStack(PaymentCardFragment.newInstance(), R.id.container)
     }
 
-    override fun onPaymentSuccess() {
-        onPaymentCardSuccess()
+    override fun onPaymentSuccess(payType: PayType) {
+        replaceFragment(PaymentSuccessFragment.newInstance(payType), R.id.container)
     }
 
-    override fun onPaymentFailure() {
-        onPaymentCardFailure()
+    override fun onPaymentFailure(payType: PayType) {
+        replaceFragmentWithBackStack(PaymentFailureFragment.newInstance(payType), R.id.container)
     }
 
     override fun onSuccessClick() {
@@ -60,11 +64,13 @@ class PaymentTipsActivity : AppCompatActivity(), IPaymentInfoListener, IPaymentC
     }
 
     override fun onPaymentCardSuccess() {
-        replaceFragment(PaymentSuccessFragment.newInstance(), R.id.container)
+        networkClient.clearXRequestId()
+        onPaymentSuccess(PayType.CARD)
     }
 
     override fun onPaymentCardFailure() {
-        replaceFragmentWithBackStack(PaymentFailureFragment.newInstance(), R.id.container)
+        networkClient.clearXRequestId()
+        onPaymentFailure(PayType.CARD)
     }
 
     override fun onCloseClick() {
@@ -73,8 +79,11 @@ class PaymentTipsActivity : AppCompatActivity(), IPaymentInfoListener, IPaymentC
 
     companion object {
         private const val EXTRA_LAYOUT_ID = "EXTRA_LAYOUT_ID"
-        fun newIntent(context: Context, layoutId: String?) = Intent(context, PaymentTipsActivity::class.java).apply {
+        private const val EXTRA_SUM = "EXTRA_SUM"
+        fun newIntent(context: Context, layoutId: String?, sum: Double? = null) = Intent(context, PaymentTipsActivity::class.java).apply {
             putExtra(EXTRA_LAYOUT_ID, layoutId)
+            putExtra(EXTRA_SUM, sum)
+
         }
     }
 

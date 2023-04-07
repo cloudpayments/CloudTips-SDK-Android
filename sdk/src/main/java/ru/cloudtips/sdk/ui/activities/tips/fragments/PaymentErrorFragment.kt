@@ -7,6 +7,7 @@ import androidx.fragment.app.Fragment
 import by.kirich1409.viewbindingdelegate.viewBinding
 import ru.cloudtips.sdk.R
 import ru.cloudtips.sdk.databinding.FragmentPaymentErrorBinding
+import ru.cloudtips.sdk.helpers.PayType
 import ru.cloudtips.sdk.ui.activities.tips.listeners.IHeaderCloseListener
 
 class PaymentErrorFragment : Fragment(R.layout.fragment_payment_error) {

@@ -1,6 +1,7 @@
 package ru.cloudtips.sdk.ui.activities.tips.fragments
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -8,19 +9,23 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import by.kirich1409.viewbindingdelegate.viewBinding
+import com.bumptech.glide.Glide
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.safetynet.SafetyNet
 import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.R
+import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.card.Card
 import ru.cloudtips.sdk.card.ThreeDsDialogFragment
 import ru.cloudtips.sdk.databinding.FragmentPaymentCardBinding
 import ru.cloudtips.sdk.helpers.CommonHelper
+import ru.cloudtips.sdk.helpers.PayType
 import ru.cloudtips.sdk.network.BasicResponse
 import ru.cloudtips.sdk.network.hasNeedCaptcha
 import ru.cloudtips.sdk.network.models.PaymentAuthData
 import ru.cloudtips.sdk.network.models.PaymentAuthStatusCode
+import ru.cloudtips.sdk.network.models.PaymentPageData
 import ru.cloudtips.sdk.ui.activities.tips.listeners.IPaymentCardListener
 import ru.cloudtips.sdk.ui.activities.tips.viewmodels.TipsViewModel
 import ru.tinkoff.decoro.MaskImpl
@@ -53,6 +58,7 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
             }
 
             headerCloseButton.setOnClickListener {
+                viewModel.trackPageClosed(PayType.CARD)
                 listener?.onCloseClick()
             }
 
@@ -63,20 +69,25 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
                     val cardCvc = cardCvcInput.text?.toString()
                     viewModel.putPaymentCardData(cardNumber, cardDate, cardCvc)
                     launchPayment()
+                    viewModel.trackCardPayClick()
                 }
             }
 
             val cardNumberFormatWatcher = MaskFormatWatcher(MaskImpl.createTerminated(PredefinedSlots.CARD_NUMBER_STANDARD))
             cardNumberFormatWatcher.installOn(cardNumberInput)
-            cardNumberInput.doAfterTextChanged { cardNumberInputLayout.helperText = null}
+            cardNumberInput.doAfterTextChanged { cardNumberInputLayout.helperText = null }
 
             val cardDateFormatWatcher = MaskFormatWatcher(MaskImpl.createTerminated(UnderscoreDigitSlotsParser().parseSlots("__/__")))
             cardDateFormatWatcher.installOn(cardDateInput)
-            cardDateInput.doAfterTextChanged { cardDateInputLayout.helperText = null}
+            cardDateInput.doAfterTextChanged { cardDateInputLayout.helperText = null }
 
             val cardCvcFormatWatcher = MaskFormatWatcher(MaskImpl.createTerminated(UnderscoreDigitSlotsParser().parseSlots("___")))
             cardCvcFormatWatcher.installOn(cardCvcInput)
-            cardCvcInput.doAfterTextChanged { cardCvcInputLayout.helperText = null}
+            cardCvcInput.doAfterTextChanged { cardCvcInputLayout.helperText = null }
+        }
+
+        viewModel.getPaymentPageData().observe(viewLifecycleOwner) {
+            updateViewsColor(it)
         }
 
         viewModel.getPaymentInfoData().observe(viewLifecycleOwner) {
@@ -84,6 +95,17 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
             viewBinding.sumTextView.text = getString(R.string.card_fragment_sum_text, CommonHelper.formatDouble(it?.getAmountWithFee()))
         }
 
+        amplitude.trackCardOpen()
+    }
+
+    private fun updateViewsColor(paymentPageData: PaymentPageData?) = with(viewBinding) {
+        val logo = paymentPageData?.getLogo()
+        Glide.with(logoView).load(logo).error(R.drawable.ic_logo_horizontal).fitCenter().into(logoView)
+
+        val buttonColor = paymentPageData?.getButtonsColor() ?: requireContext().getColor(R.color.colorAccent)
+        CommonHelper.setViewTint(headerBackButton, buttonColor)
+        CommonHelper.setViewTint(headerCloseButton, buttonColor)
+        CommonHelper.setViewTint(mainButton, buttonColor)
     }
 
     private fun isValid(): Boolean = with(viewBinding) {
@@ -122,7 +144,7 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
                     val acsUrl = data.acsUrl ?: ""
                     val paReq = data.paReq ?: ""
                     val md = data.md ?: ""
-                    val fragment3ds = ThreeDsDialogFragment.newInstance(acsUrl, paReq, md)
+                    val fragment3ds = ThreeDsDialogFragment.newInstance(acsUrl, paReq, md, PayType.CARD)
                     fragment3ds.show(parentFragmentManager, "NEED3DS")
                     fragment3ds.setTargetFragment(this@PaymentCardFragment, REQUEST_CODE_3DS)
                 }
@@ -161,7 +183,7 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
         }
     }
 
-    override fun onAuthorizationCompleted(md: String, paRes: String) {
+    override fun onAuthorizationCompleted(md: String, paRes: String, payType: PayType) {
         showSpinner()
         viewModel.postPayment3ds(md, paRes).observe(this) {
             hideSpinner()
@@ -169,7 +191,7 @@ class PaymentCardFragment : Fragment(R.layout.fragment_payment_card), ThreeDsDia
         }
     }
 
-    override fun onAuthorizationFailed(error: String?) {
+    override fun onAuthorizationFailed(error: String?, payType: PayType) {
         onPaymentFailure()
     }
 

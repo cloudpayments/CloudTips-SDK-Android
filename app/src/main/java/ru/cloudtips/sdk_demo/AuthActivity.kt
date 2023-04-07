@@ -17,6 +17,8 @@ class AuthActivity : AppCompatActivity() {
         setContentView(R.layout.activity_auth)
 
         with(viewBinding) {
+//            codeInput.setText("11747142") // prod
+            codeInput.setText("eddd7594") // predprod
             mainButton.setOnClickListener {
                 validateMainClick()
             }
@@ -25,6 +27,7 @@ class AuthActivity : AppCompatActivity() {
 
     private fun validateMainClick() = with(viewBinding) {
         val layoutId = codeInput.text?.toString()
-        tipsManager.launch(layoutId)
+        val sum = sumInput.text?.toString()?.toDoubleOrNull()
+        tipsManager.launch(layoutId, sum)
     }
 }

@@ -3,10 +3,10 @@ package ru.cloudtips.sdk.network.models
 import android.annotation.SuppressLint
 import android.os.Parcelable
 import android.text.format.DateFormat
-import com.google.gson.annotations.SerializedName
 import kotlinx.parcelize.Parcelize
 import ru.cloudtips.sdk.helpers.CommonHelper
 import java.util.*
+import kotlin.math.ceil
 
 @Parcelize
 data class PaymentPageData(
@@ -14,17 +14,22 @@ data class PaymentPageData(
     private val amount: Amount?,
     private val availableFields: AvailableFields?,
     private val backgroundUrl: String?,
+    private val logoUrl: String?,
+    private val backgroundColor: String?,
+    private val linksColor: String?,
+    private val buttonsColor: String?,
     private val failMessage: Message?,
+    private val avatarUrl: String?,
+    private val nameText: String?,
     val payerFee: PayerFee?,
     private val paymentMessage: Message?,
     private val successMessage: Message?,
     private val target: Target?,
     val title: String?,
     val url: String?,
-    private val avatarUrl: String?,
-    private val nameText: String?,
     private val rating: RatingData?,
-    private val googlePayEnabled: Boolean?
+    private val googlePayEnabled: Boolean?,
+    val percents: Percents?
 ) : Parcelable {
 
     fun getBackground(): String? = backgroundUrl
@@ -39,7 +44,28 @@ data class PaymentPageData(
 
     fun getSuccessMessage() = successMessage?.getText()
 
-    fun getGooglePayEnabled() = true//googlePayEnabled ?: false
+    fun getGooglePayEnabled() = googlePayEnabled ?: false
+
+    fun getLogo(): String? = logoUrl
+
+    fun getBackgroundColor(): Int? = CommonHelper.getColorByString(backgroundColor)
+
+    fun getLinksColor(): Int? = CommonHelper.getColorByString(linksColor)
+
+    fun getButtonsColor(): Int? = CommonHelper.getColorByString(buttonsColor)
+
+    fun getPresets() = amount?.amountPresetSettings
+
+    fun getPresetSum(sum: Double): Double {
+        val default = percents?.getDefault() ?: return 0.0
+        val minimal = amount?.range?.getMinimal() ?: 0.0
+        val maximal = amount?.range?.getMaximal() ?: 0.0
+
+        val presetSum = ceil(sum * default / 100.0)
+        return if (presetSum in minimal..maximal) presetSum else 0.0
+    }
+
+    fun getTarget(): Target? = target
 
     @Parcelize
     data class AfterPaymentActions(
@@ -55,7 +81,8 @@ data class PaymentPageData(
     @Parcelize
     data class Amount(
         val range: AmountRange?,
-        val currency: String? = "RUB"
+        val currency: String? = "RUB",
+        internal val amountPresetSettings: AmountPresetSettings?
     ) : Parcelable {
         fun getValue(): Double {
             return range?.getValue() ?: 0.0
@@ -63,20 +90,6 @@ data class PaymentPageData(
 
         fun getType(): PaymentType {
             return range?.getType() ?: PaymentType.VOLUNTARY
-        }
-
-        companion object {
-            fun fromData(type: PaymentType, value: Double?): Amount {
-                val range = when (type) {
-                    PaymentType.FIXED -> AmountRange(value, null, null)
-                    PaymentType.MIN -> AmountRange(null, value, null)
-                    PaymentType.VOLUNTARY -> AmountRange(null, null, null)
-                    else -> null
-                }
-                return Amount(range)
-            }
-
-
         }
 
         @Parcelize
@@ -102,6 +115,31 @@ data class PaymentPageData(
                 return getMaximal()
             }
         }
+
+    }
+
+    @Parcelize
+    data class AmountPresetSettings(
+        private val enabled: Boolean?,
+        private val buttonAction: String?,
+        private val amounts: List<Double>?
+    ) : Parcelable {
+
+        fun getEnabled() = enabled ?: false
+
+        fun getAction() = buttonAction
+
+        fun getValues() = amounts ?: emptyList()
+
+    }
+
+    @Parcelize
+    data class Percents(
+        private val defaultPercent: Int?,
+        private val percents: List<Int>?
+    ) : Parcelable {
+        fun getDefault() = defaultPercent
+        fun getPercents() = percents ?: emptyList()
     }
 
     @Parcelize
@@ -178,17 +216,18 @@ data class PaymentPageData(
     }
 
     fun getPaymentValue(): Double? {
+        val target = getTarget()
         if (target != null) return target.getAmount()
         return amount?.getValue()
     }
 
     fun getPaymentType(): PaymentType {
-        if (target != null) return PaymentType.GOAL
+        if (getTarget() != null) return PaymentType.GOAL
         return amount?.getType() ?: PaymentType.VOLUNTARY
     }
 
     fun getTargetFinishDate(): Long? {
-        return target?.getFinishDate()
+        return getTarget()?.getFinishDate()
     }
 
     fun getAvailableFields(): HashMap<AvailableFields.FieldNames, AvailableFields.AvailableFieldsValue> {
@@ -215,8 +254,6 @@ data class PaymentPageData(
         }
         return map
     }
-
-    fun getTarget(): Target? = target
 
     enum class PaymentType {
         VOLUNTARY,

@@ -7,30 +7,55 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.card.Card
+import ru.cloudtips.sdk.helpers.PayType
 import ru.cloudtips.sdk.models.*
 import ru.cloudtips.sdk.network.BasicResponse
 import ru.cloudtips.sdk.network.models.*
 import ru.cloudtips.sdk.network.models.PaymentAuthStatusCode.*
 import ru.cloudtips.sdk.networkClient
+import kotlin.math.ceil
 
 class TipsViewModel : ViewModel() {
     private val paymentLayoutId = MutableStateFlow<String?>(null)
     private val paymentPublicId = MutableStateFlow<PublicIdData?>(null)
 
+    private val sumData = MutableStateFlow<Double>(0.0)
+    fun getSum() = sumData.asLiveData()
+
+    private val paymentInfoData = MutableLiveData(
+        emptyInfoData()
+    )
+
+    private fun emptyInfoData() = PaymentInfoData(
+        0.0,
+        0.0,
+        false,
+        PaymentInfoSenderData(null, null, null, null, null),
+        PaymentInfoRatingData(0, mutableListOf())
+    )
+
+
     private val paymentPageData = MutableStateFlow<PaymentPageData?>(null)
-    fun getPaymentPageData() = paymentPageData.asLiveData()
-    fun requestPaymentPageData(layoutId: String?): LiveData<BasicResponse<PaymentPageData>> {
+    private val paymentPageLiveData = paymentPageData.asLiveData()
+    fun getPaymentPageData() = paymentPageLiveData
+    fun requestPaymentPageData(layoutId: String?, sum: Double?): LiveData<BasicResponse<PaymentPageData>> {
         return liveData(Dispatchers.IO) {
+            sumData.emit(sum ?: 0.0)
             paymentLayoutId.emit(layoutId)
             val response = networkClient.getPaymentPage(layoutId)
-            if (response.succeed && response.data != null) {
-                paymentPageData.emit(response.data)
+            val data = response.data
+            if (response.succeed && data != null) {
+                paymentPageData.emit(data)
+                setPresetSettings(data)
             }
             val publicIdResponse = networkClient.getPublicId(layoutId)
             if (publicIdResponse.succeed) {
                 paymentPublicId.emit(publicIdResponse.data)
             }
+            paymentInfoData.postValue(emptyInfoData())
+            paymentCardData.value = null
             emit(response)
         }
     }
@@ -44,41 +69,8 @@ class TipsViewModel : ViewModel() {
     }
 
 
-    private val paymentInfoData = MutableLiveData(
-        PaymentInfoData(
-            0.0,
-            0.0,
-            false,
-            PaymentInfoSenderData(null, null, null, null, null),
-            PaymentInfoRatingData(0, mutableListOf())
-        )
-    )
-
     fun getPaymentInfoData() = paymentInfoData
 
-    fun putPaymentInfoData(
-        amount: Double,
-        feeAmount: Double,
-        feeFromPayer: Boolean,
-        name: String?,
-        email: String?,
-        phone: String?,
-        city: String?,
-        comment: String?,
-        rating: Int,
-        ratingComponents: List<RatingComponent>
-    ) {
-        viewModelScope.launch {
-            val data = PaymentInfoData(
-                amount,
-                feeAmount,
-                feeFromPayer,
-                PaymentInfoSenderData(name, email, phone, city, comment),
-                PaymentInfoRatingData(rating, ratingComponents.map { it.id ?: "" }.toMutableList())
-            )
-            paymentInfoData.postValue(data)
-        }
-    }
     fun putPaymentInfoAmountData(
         amount: Double,
         feeAmount: Double,
@@ -159,6 +151,7 @@ class TipsViewModel : ViewModel() {
     }
 
     fun launchPayment(captcha: String? = null): LiveData<BasicResponse<PaymentAuthData>> {
+        networkClient.generateXRequestId()
         return liveData(Dispatchers.IO) {
             val layoutId = paymentLayoutId.value ?: return@liveData
             val info = paymentInfoData.value ?: return@liveData
@@ -207,6 +200,7 @@ class TipsViewModel : ViewModel() {
     fun getMerchantId() = paymentPublicId.asLiveData()
 
     fun launchGPayment(paymentData: PaymentData?): LiveData<BasicResponse<PaymentAuthData>> {
+        networkClient.generateXRequestId()
         return liveData(Dispatchers.IO) {
             val paymentInformation = paymentData?.toJson()
             val cryptogram: String
@@ -226,6 +220,7 @@ class TipsViewModel : ViewModel() {
     }
 
     fun launchYPayment(cryptogram: String): LiveData<BasicResponse<PaymentAuthData>> {
+        networkClient.generateXRequestId()
         return liveData(Dispatchers.IO) {
             val layoutId = paymentLayoutId.value ?: return@liveData
             val info = paymentInfoData.value ?: return@liveData
@@ -234,5 +229,52 @@ class TipsViewModel : ViewModel() {
             refreshPaymentAfterSuccess(response)
             emit(response)
         }
+    }
+
+    fun trackPayClick(payType: PayType) {
+        viewModelScope.launch {
+            amplitude.trackPayClick(payType, paymentInfoData.value)
+        }
+    }
+
+    fun trackCardPayClick() {
+        viewModelScope.launch {
+            amplitude.trackCardPay(paymentCardData.value)
+        }
+    }
+
+    fun trackPageClosed(payType: PayType? = null) {
+        viewModelScope.launch {
+            amplitude.trackPageClosed(payType, paymentInfoData.value)
+        }
+    }
+
+    private val presetSettingsData = MutableStateFlow<PresetInfoData?>(null)
+    fun getPresetSettings() = presetSettingsData.asLiveData()
+    private suspend fun setPresetSettings(data: PaymentPageData?) {
+        if (data == null) {
+            presetSettingsData.emit(null)
+            return
+        }
+        val range = Pair(data.getAmount()?.range?.getMinimal() ?: 0.0, data.getAmount()?.range?.getMaximal() ?: 0.0)
+        val sum = sumData.value
+        val percents =
+            data.percents?.getPercents()?.map { it.toDouble() }?.filter { ceil(sum * it / 100.0) in range.first..range.second } ?: emptyList()
+        val result: PresetInfoData? = if (sum > 0 && percents.isNotEmpty()) {
+            PresetInfoData.buildByPercent(percents, sum, range)
+        } else {
+            val presets = data.getPresets()
+            if (presets != null && presets.getEnabled()) {
+                if (presets.getAction() == "Add") {
+                    PresetInfoData.buildByAdd(presets.getValues())
+                } else {
+                    PresetInfoData.buildByValue(presets.getValues(), range)
+                }
+            } else {
+                null
+            }
+        }
+
+        presetSettingsData.emit(result)
     }
 }

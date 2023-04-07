@@ -12,6 +12,7 @@
 
     <application>
         <activity
+            android:screenOrientation="portrait"
             android:name="ru.cloudtips.sdk.ui.activities.tips.PaymentTipsActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />

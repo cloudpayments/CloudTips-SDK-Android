@@ -11,19 +11,22 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.view.isGone
 import androidx.fragment.app.DialogFragment
+import by.kirich1409.viewbindingdelegate.viewBinding
 import com.google.gson.JsonParser
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.databinding.DialogCpsdkThreeDsBinding
+import ru.cloudtips.sdk.helpers.PayType
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.util.*
 
 class ThreeDsDialogFragment : DialogFragment() {
     interface ThreeDSDialogListener {
-        fun onAuthorizationCompleted(md: String, paRes: String)
-        fun onAuthorizationFailed(error: String?)
+        fun onAuthorizationCompleted(md: String, paRes: String, payType: PayType)
+        fun onAuthorizationFailed(error: String?, payType: PayType)
     }
 
     companion object {
@@ -31,34 +34,19 @@ class ThreeDsDialogFragment : DialogFragment() {
         private const val ARG_ACS_URL = "acs_url"
         private const val ARG_MD = "md"
         private const val ARG_PA_REQ = "pa_req"
+        private const val ARG_PAY_TYPE = "pay_type"
 
-        fun newInstance(acsUrl: String, paReq: String, md: String) = ThreeDsDialogFragment().apply {
+        fun newInstance(acsUrl: String, paReq: String, md: String, payType: PayType) = ThreeDsDialogFragment().apply {
             arguments = Bundle().also {
                 it.putString(ARG_ACS_URL, acsUrl)
                 it.putString(ARG_MD, md)
                 it.putString(ARG_PA_REQ, paReq)
+                it.putSerializable(ARG_PAY_TYPE, payType)
             }
         }
     }
 
-    private var _binding: DialogCpsdkThreeDsBinding? = null
-
-    private val binding get() = _binding!!
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        _binding = DialogCpsdkThreeDsBinding.inflate(inflater, container, false)
-        val view = binding.root
-        return view
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
+    private val binding: DialogCpsdkThreeDsBinding by viewBinding()
 
     private val acsUrl by lazy {
         requireArguments().getString(ARG_ACS_URL) ?: ""
@@ -70,6 +58,10 @@ class ThreeDsDialogFragment : DialogFragment() {
 
     private val paReq by lazy {
         requireArguments().getString(ARG_PA_REQ) ?: ""
+    }
+
+    private val payType by lazy {
+        (requireArguments().getParcelable(ARG_PAY_TYPE) as? PayType) ?: PayType.CARD
     }
 
     private var listener: ThreeDSDialogListener? = null
@@ -96,9 +88,9 @@ class ThreeDsDialogFragment : DialogFragment() {
         }
 
         binding.icClose.setOnClickListener {
-            listener?.onAuthorizationFailed(null)
             dismiss()
         }
+        amplitude.track3dsOpen(payType)
     }
 
     override fun onStart() {
@@ -125,9 +117,9 @@ class ThreeDsDialogFragment : DialogFragment() {
             val paRes = jsonObject["PaRes"].asString
             requireActivity().runOnUiThread {
                 if (!paRes.isNullOrEmpty()) {
-                    listener?.onAuthorizationCompleted(md, paRes)
+                    listener?.onAuthorizationCompleted(md, paRes, payType)
                 } else {
-                    listener?.onAuthorizationFailed(html ?: "")
+                    listener?.onAuthorizationFailed(html ?: "", payType)
                 }
                 dismissAllowingStateLoss()
             }

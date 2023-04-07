@@ -10,7 +10,10 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import jp.wasabeef.glide.transformations.RoundedCornersTransformation
 import ru.cloudtips.sdk.R
+import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.databinding.FragmentPaymentFailureBinding
+import ru.cloudtips.sdk.helpers.PayType
+import ru.cloudtips.sdk.helpers.CommonHelper
 import ru.cloudtips.sdk.network.models.PaymentPageData
 import ru.cloudtips.sdk.ui.activities.tips.listeners.IHeaderCloseListener
 import ru.cloudtips.sdk.ui.activities.tips.viewmodels.TipsViewModel
@@ -34,18 +37,37 @@ class PaymentFailureFragment : Fragment(R.layout.fragment_payment_failure) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val payType = arguments?.getParcelable(EXTRA_PAY_TYPE) as? PayType
+        amplitude.trackFailureOpen(payType ?: PayType.CARD, getString(R.string.fragment_payment_failure_subtitle))
+
         viewModel.getPaymentPageData().observe(viewLifecycleOwner) {
             fillData(it)
         }
 
         with(viewBinding) {
             headerCloseButton.setOnClickListener {
+                viewModel.trackPageClosed(payType)
                 listener?.onCloseClick()
             }
             mainButton.setOnClickListener {
                 activity?.onBackPressed()
             }
         }
+
+        viewModel.getPaymentPageData().observe(viewLifecycleOwner) {
+            updateViewsColor(it)
+        }
+
+    }
+
+
+    private fun updateViewsColor(paymentPageData: PaymentPageData?) = with(viewBinding) {
+        val logo = paymentPageData?.getLogo()
+        Glide.with(logoView).load(logo).error(R.drawable.ic_logo_horizontal).fitCenter().into(logoView)
+
+        val buttonColor = paymentPageData?.getButtonsColor() ?: requireContext().getColor(R.color.colorAccent)
+        CommonHelper.setViewTint(headerCloseButton, buttonColor)
+        CommonHelper.setViewTint(mainButton, buttonColor)
     }
 
     private fun fillData(data: PaymentPageData?) = with(viewBinding) {
@@ -68,6 +90,11 @@ class PaymentFailureFragment : Fragment(R.layout.fragment_payment_failure) {
     }
 
     companion object {
-        fun newInstance() = PaymentFailureFragment()
+        private const val EXTRA_PAY_TYPE = "EXTRA_PAY_TYPE"
+        fun newInstance(payType: PayType) = PaymentFailureFragment().apply {
+            arguments = Bundle().apply {
+                putParcelable(EXTRA_PAY_TYPE, payType)
+            }
+        }
     }
 }

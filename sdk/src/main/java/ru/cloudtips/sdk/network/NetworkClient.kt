@@ -20,6 +20,7 @@ import ru.cloudtips.sdk.network.postbodies.PostPayment3ds
 import ru.cloudtips.sdk.network.postbodies.PostPublicId
 import java.io.IOException
 import java.net.CookiePolicy
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class NetworkClient {
@@ -27,6 +28,21 @@ class NetworkClient {
     private val apiRequests: ApiRequests
 
     private val dispatcher = Dispatchers.IO
+
+    private var xRequestId: String? = null
+    fun generateXRequestId() {
+        xRequestId = UUID.randomUUID().toString()
+    }
+
+    fun clearXRequestId() {
+        xRequestId = null
+    }
+
+    private fun getXRequestId(): String {
+        val result = xRequestId ?: UUID.randomUUID().toString()
+        xRequestId = result
+        return result
+    }
 
     init {
         val cookieManager = java.net.CookieManager()
@@ -53,10 +69,6 @@ class NetworkClient {
             .build()
 
         apiRequests = retrofitApi.create(ApiRequests::class.java)
-    }
-
-    fun getApiUrl(): String {
-        return apiUrl
     }
 
     //API
@@ -97,13 +109,13 @@ class NetworkClient {
             payerComment = info.sender.comment,
             layoutId = layoutId,
             cryptogram = cryptogram,
-            rating = if (info.rating?.score != null && info.rating.score > 0) PostPartnerAuth.Rating(
+            rating = if (info.rating.score > 0) PostPartnerAuth.Rating(
                 info.rating.score,
                 info.rating.components
             ) else null,
             captchaVerificationToken = captchaVerificationToken
         )
-        return safeApiCall(dispatcher) { apiRequests.postPaymentAuth(body) }
+        return safeApiCall(dispatcher) { apiRequests.postPaymentAuth(body, getXRequestId()) }
     }
 
     suspend fun postPayment3ds(md: String, paRes: String): BasicResponse<PaymentAuthData> {

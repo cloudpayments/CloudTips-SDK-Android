@@ -25,7 +25,7 @@ interface ApiRequests {
     suspend fun getPublicId(@Body body: PostPublicId): BasicResponse<PublicIdData>
 
     @POST("/api/payment/auth")
-    suspend fun postPaymentAuth(@Body body: PostPartnerAuth): BasicResponse<PaymentAuthData>
+    suspend fun postPaymentAuth(@Body body: PostPartnerAuth, @Header("X-Request-ID") requestId: String): BasicResponse<PaymentAuthData>
 
     @POST("/api/payment/post3ds")
     suspend fun postPayment3ds(@Body body: PostPayment3ds): BasicResponse<PaymentAuthData>

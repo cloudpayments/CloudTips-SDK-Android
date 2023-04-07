@@ -77,6 +77,10 @@
         <item name="android:textSize">16sp</item>
     </style>
 
+    <style name="MediumText.18">
+        <item name="android:textSize">18sp</item>
+    </style>
+
     <style name="BoldText" parent="android:style/Widget.TextView">
         <item name="android:fontFamily">@font/roboto_bold</item>
         <item name="android:textColor">@color/colorTextPrimary</item>
