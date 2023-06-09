@@ -16,6 +16,7 @@ import com.google.gson.JsonParser
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import ru.cloudtips.sdk.R
 import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.databinding.DialogCpsdkThreeDsBinding
 import ru.cloudtips.sdk.helpers.PayType
@@ -23,7 +24,7 @@ import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.util.*
 
-class ThreeDsDialogFragment : DialogFragment() {
+class ThreeDsDialogFragment : DialogFragment(R.layout.dialog_cpsdk_three_ds) {
     interface ThreeDSDialogListener {
         fun onAuthorizationCompleted(md: String, paRes: String, payType: PayType)
         fun onAuthorizationFailed(error: String?, payType: PayType)
