@@ -14,10 +14,6 @@ android {
         versionCode 1
         versionName "1.0"
         multiDexEnabled true
-
-        manifestPlaceholders = [
-                YANDEX_CLIENT_ID: "baaa4b67539a4f479145b644a07cf30a"
-        ]
     }
 
     buildTypes {
