@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 rootProject.name = "CloudTips-SDK-Github"
 include ':app'
 include ':sdk'
+include ':edit-card'

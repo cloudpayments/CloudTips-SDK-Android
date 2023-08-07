@@ -92,4 +92,6 @@ dependencies {
     implementation 'org.jsoup:jsoup:1.13.1'
 
     implementation 'com.amplitude:analytics-android:1.0+'
+
+    implementation project(path: ':edit-card')
 }

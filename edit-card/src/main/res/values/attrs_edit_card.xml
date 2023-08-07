@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="CoreBaseEditText">
+        <attr name="core_next_field_id" format="reference"/>
+        <attr name="core_prev_field_id" format="reference"/>
+        <attr name="core_text_color" format="color"/>
+        <attr name="core_error_color" format="color"/>
+    </declare-styleable>
+
+    <declare-styleable name="CoreCardNumberEditText" parent="CoreBaseEditText">
+        <attr name="core_animation_enabled" format="boolean"/>
+        <attr name="core_cvc_id" format="reference"/>
+        <attr name="core_date_id" format="reference"/>
+        <attr name="core_card_icon_id" format="reference"/>
+        <attr name="core_button_id" format="reference"/>
+    </declare-styleable>
+
+    <declare-styleable name="CoreEditCard" parent="CoreCardNumberEditText">
+        <attr name="core_mode">
+            <flag name="standard" value="1"/>
+            <flag name="without_date" value="2"/>
+            <flag name="without_cvc" value="4"/>
+        </attr>
+        <attr name="core_font" format="reference"/>
+        <attr name="core_text_size" format="dimension"/>
+        <attr name="core_hint_color" format="color"/>
+        <attr name="core_move_to_prev" format="boolean"/>
+        <attr name="core_icon_width" format="dimension"/>
+        <attr name="core_icon_height" format="dimension"/>
+        <attr name="core_icon_padding_right" format="dimension"/>
+        <attr name="core_icon_margin_right" format="dimension"/>
+        <attr name="core_card_next_icon" format="reference"/>
+        <attr name="core_card_action_icon" format="reference"/>
+        <attr name="core_action_button_height" format="dimension"/>
+        <attr name="core_action_button_width" format="dimension"/>
+        <attr name="core_action_button_margin_left" format="dimension"/>
+        <attr name="core_action_button_in_short_mode" format="boolean"/>
+    </declare-styleable>
+
+</resources>

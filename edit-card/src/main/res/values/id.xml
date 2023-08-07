@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <item name="core_edit_card_number" type="id"/>
+    <item name="core_edit_card_cvc" type="id"/>
+    <item name="core_edit_card_date" type="id"/>
+    <item name="core_edit_card_payment" type="id"/>
+    <item name="core_edit_card_action_button" type="id"/>
+
+</resources>

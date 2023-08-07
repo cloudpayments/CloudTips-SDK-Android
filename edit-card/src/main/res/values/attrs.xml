@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="CoreEditCardView">
+        <attr name="android:fontFamily" />
+        <attr name="core_editcard_number_hint" format="string"/>
+        <attr name="core_editcard_date_hint" format="string"/>
+        <attr name="core_editcard_cvc_hint" format="string"/>
+        <attr name="core_editcard_text_color" format="color" />
+        <attr name="core_editcard_error_text_color" format="color" />
+        <attr name="core_editcard_hint_color" format="color" />
+        <attr name="core_editcard_action_icon" format="reference" />
+        <attr name="core_editcard_next_icon" format="reference" />
+        <attr name="core_editcard_disable_secure_fields" format="boolean" />
+        <attr name="core_editcard_number_field_translate_animation_enabled" format="boolean" />
+        <attr name="core_editcard_payment_logo_padding" format="dimension" />
+    </declare-styleable>
+
+</resources>

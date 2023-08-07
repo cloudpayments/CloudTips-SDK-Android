@@ -1,0 +1,5 @@
+<resources>
+    <string name="cardfield_cvc_placeholder">CVC</string>
+    <string name="cardfield_date_placeholder">ММ/ГГ</string>
+    <string name="cardfield_number_placeholder">Номер карты</string>
+</resources>
