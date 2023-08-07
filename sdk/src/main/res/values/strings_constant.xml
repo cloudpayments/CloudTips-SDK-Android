@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="license_url" translatable="false">https://static.cloudpayments.ru/docs/cloudtips_oferta.pdf</string>
+    <string name="agreement_url" translatable="false">https://static.cloudpayments.ru/docs/CloudTips/agreement-cloudtips.pdf</string>
+    <string name="policy_url" translatable="false">https://static.cloudpayments.ru/docs/policy-cloudpayments.pdf</string>
     <string name="google_captch_privacy" translatable="false">https://policies.google.com/privacy</string>
     <string name="google_captch_terms" translatable="false">https://policies.google.com/terms</string>
     <string name="ypay_merchant_id" translatable="false">1193a702-d3c0-4637-a7c0-2ac95b73ee29</string>
     <string name="ypay_merchant_name" translatable="false">cloudpayments</string>
     <string name="ypay_merchant_url" translatable="false">https://cloudpayments.ru/</string>
     <string name="amplitude_apikey" translatable="false">fbb0e683df31b9844e5fce66776896f8</string>
+    <string name="cloudtips_metadata_link_id" translatable="false">ru.cloudtips.sdk.cloudtips_id</string>
+    <string name="sbp_deeplink_scheme" translatable="false">ctsdksbp</string>
+    <string name="tpay_deeplink_scheme" translatable="false">ctsdk</string>
 </resources>

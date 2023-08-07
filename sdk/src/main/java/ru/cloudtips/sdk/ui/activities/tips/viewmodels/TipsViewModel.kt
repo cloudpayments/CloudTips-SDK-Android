@@ -15,9 +15,12 @@ import ru.cloudtips.sdk.network.BasicResponse
 import ru.cloudtips.sdk.network.models.*
 import ru.cloudtips.sdk.network.models.PaymentAuthStatusCode.*
 import ru.cloudtips.sdk.networkClient
+import ru.cloudtips.sdk.sharedPrefs
 import kotlin.math.ceil
 
 class TipsViewModel : ViewModel() {
+    private val paymentSbpPayDeeplink = MutableStateFlow<String?>(null)
+    private val paymentTPayDeeplink = MutableStateFlow<String?>(null)
     private val paymentLayoutId = MutableStateFlow<String?>(null)
     private val paymentPublicId = MutableStateFlow<PublicIdData?>(null)
 
@@ -25,17 +28,20 @@ class TipsViewModel : ViewModel() {
     fun getSum() = sumData.asLiveData()
 
     private val paymentInfoData = MutableLiveData(
-        emptyInfoData()
+        PaymentInfoData.empty()
     )
 
-    private fun emptyInfoData() = PaymentInfoData(
-        0.0,
-        0.0,
-        false,
-        PaymentInfoSenderData(null, null, null, null, null),
-        PaymentInfoRatingData(0, mutableListOf())
-    )
+    fun setSbpPayDeeplink(sbpPayDeeplink: String?) {
+        viewModelScope.launch {
+            paymentSbpPayDeeplink.emit(sbpPayDeeplink)
+        }
+    }
 
+    fun setTinkoffPayDeeplink(tinkoffPayDeeplink: String?) {
+        viewModelScope.launch {
+            paymentTPayDeeplink.emit(tinkoffPayDeeplink)
+        }
+    }
 
     private val paymentPageData = MutableStateFlow<PaymentPageData?>(null)
     private val paymentPageLiveData = paymentPageData.asLiveData()
@@ -50,11 +56,12 @@ class TipsViewModel : ViewModel() {
                 paymentPageData.emit(data)
                 setPresetSettings(data)
             }
+            requestSavedCards()
             val publicIdResponse = networkClient.getPublicId(layoutId)
             if (publicIdResponse.succeed) {
                 paymentPublicId.emit(publicIdResponse.data)
             }
-            paymentInfoData.postValue(emptyInfoData())
+            paymentInfoData.postValue(PaymentInfoData.empty())
             paymentCardData.value = null
             emit(response)
         }
@@ -78,10 +85,9 @@ class TipsViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             val oldValue = paymentInfoData.value
-            oldValue?.apply {
-                setAmount(amount)
-                setFeeAmount(feeAmount)
-                this.feeFromPayer = feeFromPayer
+            val newValue = PaymentInfoData(amount, feeAmount, feeFromPayer, oldValue?.sender, oldValue?.rating)
+            if (oldValue != newValue) {
+                paymentInfoData.postValue(newValue)
             }
         }
     }
@@ -89,19 +95,15 @@ class TipsViewModel : ViewModel() {
 
     fun putPaymentInfoSenderData(
         name: String?,
-        email: String?,
-        phone: String?,
-        city: String?,
         comment: String?,
+        feedback: String?
     ) {
         viewModelScope.launch {
             val oldValue = paymentInfoData.value
             oldValue?.sender?.apply {
                 this.name = if (!name.isNullOrEmpty()) name else null
-                this.email = if (!email.isNullOrEmpty()) email else null
-                this.phone = if (!phone.isNullOrEmpty()) phone else null
-                this.city = if (!city.isNullOrEmpty()) city else null
                 this.comment = if (!comment.isNullOrEmpty()) comment else null
+                this.feedback = if (!feedback.isNullOrEmpty()) feedback else null
             }
         }
     }
@@ -121,10 +123,20 @@ class TipsViewModel : ViewModel() {
     }
 
     private val paymentCardData = MutableStateFlow<PaymentCardData?>(null)
-    fun putPaymentCardData(number: String?, date: String?, cvc: String?) {
+    fun putPaymentCardData(number: String?, date: String?, cvc: String?, saved: Boolean) {
         viewModelScope.launch {
-            val data = PaymentCardData(number, date, cvc)
+            val data = PaymentCardData(number, date, cvc, saved)
             paymentCardData.emit(data)
+            paymentSavedCardData.emit(null)
+        }
+    }
+
+    private val paymentSavedCardData = MutableStateFlow<PaymentSavedCardData?>(null)
+    fun putSavedPaymentCardData(item: CardData, cvc: String?) {
+        viewModelScope.launch {
+            val data = PaymentSavedCardData(item.getExternalId(), cvc)
+            paymentCardData.emit(null)
+            paymentSavedCardData.emit(data)
         }
     }
 
@@ -155,24 +167,41 @@ class TipsViewModel : ViewModel() {
         return liveData(Dispatchers.IO) {
             val layoutId = paymentLayoutId.value ?: return@liveData
             val info = paymentInfoData.value ?: return@liveData
-            val card = paymentCardData.value ?: return@liveData
             val publicId = paymentPublicId.value?.publicId ?: return@liveData
-
-            val cryptogram = Card.cardCryptogram(card.number ?: "", card.date ?: "", card.cvc ?: "", publicId) ?: ""
 
             val verifyResponse = postAuthVerify(info.getAmountWithFee(), layoutId, captcha)
             if (verifyResponse.succeed) {
-                val verifyCaptcha = verifyResponse.data?.getToken()
-                val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, verifyCaptcha)
-                refreshPaymentAfterSuccess(response)
-                emit(response)
+                val card = paymentCardData.value
+                val savedCard = paymentSavedCardData.value
+                if (card != null) {
+                    val cryptogram = Card.cardCryptogram(card.number ?: "", card.date ?: "", card.cvc ?: "", publicId) ?: ""
+                    val verifyCaptcha = verifyResponse.data?.getToken()
+                    val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, card.save, verifyCaptcha)
+                    refreshPaymentAfterSuccess(response)
+                    if (card.save) {
+                        val externalId = response.data?.externalId
+                        if (!externalId.isNullOrEmpty()) sharedPrefs.cardExternalId = externalId
+                    }
+                    emit(response)
+                } else if (savedCard != null) {
+                    val cryptogram = Card.cardCryptogramForCVV(savedCard.cvc)
+                    val verifyCaptcha = verifyResponse.data?.getToken()
+                    val response = networkClient.postSavedPaymentAuth(
+                        layoutId = layoutId,
+                        info = info,
+                        cryptogram = cryptogram,
+                        cardId = savedCard.cardId,
+                        captcha = verifyCaptcha
+                    )
+                    refreshPaymentAfterSuccess(response)
+                    emit(response)
+                }
             } else {
                 emit(BasicResponse<PaymentAuthData>().apply {
                     succeed = false
                     errors = verifyResponse.getErrors()
                 })
             }
-
         }
     }
 
@@ -210,7 +239,7 @@ class TipsViewModel : ViewModel() {
                 val layoutId = paymentLayoutId.value ?: return@liveData
                 val info = paymentInfoData.value ?: return@liveData
 
-                val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, null)
+                val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, false, null)
                 refreshPaymentAfterSuccess(response)
                 emit(response)
             } catch (e: Exception) {
@@ -225,8 +254,33 @@ class TipsViewModel : ViewModel() {
             val layoutId = paymentLayoutId.value ?: return@liveData
             val info = paymentInfoData.value ?: return@liveData
 
-            val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, null)
+            val response = networkClient.postPaymentAuth(layoutId, info, cryptogram, false, null)
             refreshPaymentAfterSuccess(response)
+            emit(response)
+        }
+    }
+
+    fun launchTPayment(): LiveData<BasicResponse<PaymentExternalData>> {
+        networkClient.generateXRequestId()
+        return liveData(Dispatchers.IO) {
+            val layoutId = paymentLayoutId.value ?: return@liveData
+            val info = paymentInfoData.value ?: return@liveData
+            val deeplink = paymentTPayDeeplink.value
+
+            val response = networkClient.postPaymentTinkoff(layoutId, info, deeplink)
+            emit(response)
+        }
+    }
+
+    fun launchSbpPayment(): LiveData<BasicResponse<PaymentExternalData>> {
+        networkClient.generateXRequestId()
+        return liveData(Dispatchers.IO) {
+            val layoutId = paymentLayoutId.value ?: return@liveData
+            val info = paymentInfoData.value ?: return@liveData
+            //temporary pass hardcoded deeplink due to backend issue
+            val deeplink = "https://cloudtips.ru"//paymentSbpPayDeeplink.value
+
+            val response = networkClient.postPaymentSbp(layoutId, info, deeplink)
             emit(response)
         }
     }
@@ -276,5 +330,26 @@ class TipsViewModel : ViewModel() {
         }
 
         presetSettingsData.emit(result)
+    }
+
+    private val savedCards: MutableLiveData<List<CardData>> = MutableLiveData<List<CardData>>()
+
+    fun getSavedCards() = savedCards
+    private suspend fun requestSavedCards() {
+        if (!sharedPrefs.cardExternalId.isNullOrEmpty()) {
+            val response = networkClient.getSavedCards()
+            val responseCards = response.data ?: emptyList()
+            val cards = responseCards.map { CardData(it.cardMask, it.cardId, it.cardType) }
+            savedCards.postValue(cards)
+        } else {
+            savedCards.postValue(emptyList())
+        }
+    }
+
+    fun deleteSavedCards() {
+        viewModelScope.launch {
+            sharedPrefs.cardExternalId = null
+            savedCards.postValue(emptyList())
+        }
     }
 }

@@ -14,10 +14,9 @@ import retrofit2.converter.scalars.ScalarsConverterFactory
 import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.models.PaymentInfoData
 import ru.cloudtips.sdk.network.models.*
-import ru.cloudtips.sdk.network.postbodies.PostAuthVerify
-import ru.cloudtips.sdk.network.postbodies.PostPartnerAuth
-import ru.cloudtips.sdk.network.postbodies.PostPayment3ds
-import ru.cloudtips.sdk.network.postbodies.PostPublicId
+import ru.cloudtips.sdk.network.postbodies.*
+
+import ru.cloudtips.sdk.sharedPrefs
 import java.io.IOException
 import java.net.CookiePolicy
 import java.util.UUID
@@ -28,6 +27,14 @@ class NetworkClient {
     private val apiRequests: ApiRequests
 
     private val dispatcher = Dispatchers.IO
+
+    private val mUserAgentInterceptor: Interceptor = Interceptor { chain ->
+        val originalRequest = chain.request()
+        val requestWithUserAgent = originalRequest.newBuilder()
+            .header("User-Agent", "CloudTips/SDK-Android")
+            .build()
+        chain.proceed(requestWithUserAgent)
+    }
 
     private var xRequestId: String? = null
     fun generateXRequestId() {
@@ -56,9 +63,10 @@ class NetworkClient {
         }
 
         defaultHttpClientBuilder
+            .addInterceptor(mUserAgentInterceptor)
             .dispatcher(dispatcher)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
             .cookieJar(JavaNetCookieJar(cookieManager))
 
         val retrofitApi = Retrofit.Builder()
@@ -97,25 +105,96 @@ class NetworkClient {
         layoutId: String,
         info: PaymentInfoData,
         cryptogram: String,
-        captchaVerificationToken: String? = null
+        saveCard: Boolean,
+        captcha: String? = null
     ): BasicResponse<PaymentAuthData> {
-        val body = PostPartnerAuth(
+        val body = PostCardAuth(
             amount = info.getAmount(),
-            feeFromPayer = info.feeFromPayer,
-            payerName = info.sender.name,
-            payerEmail = info.sender.email,
-            payerPhone = info.sender.phone,
-            payerCity = info.sender.city,
-            payerComment = info.sender.comment,
+            feeFromPayer = info.getFeeFromPayer(),
+            payerName = info.sender?.name,
+            payerComment = info.sender?.comment,
+            payerFeedback = info.sender?.feedback,
             layoutId = layoutId,
             cryptogram = cryptogram,
-            rating = if (info.rating.score > 0) PostPartnerAuth.Rating(
-                info.rating.score,
-                info.rating.components
+            rating = if ((info.rating?.score ?: 0) > 0) PostComponentsRating(
+                info.rating?.score,
+                info.rating?.components
             ) else null,
-            captchaVerificationToken = captchaVerificationToken
+            captchaVerificationToken = captcha,
+            saveCard = saveCard,
+            externalId = if (saveCard) sharedPrefs.cardExternalId else null
         )
         return safeApiCall(dispatcher) { apiRequests.postPaymentAuth(body, getXRequestId()) }
+    }
+
+    suspend fun postPaymentSbp(
+        layoutId: String,
+        info: PaymentInfoData,
+        deeplink: String?
+    ): BasicResponse<PaymentExternalData> {
+        val body = PostExternalAuth(
+            amount = info.getAmount(),
+            feeFromPayer = info.getFeeFromPayer(),
+            payerName = info.sender?.name,
+            payerComment = info.sender?.comment,
+            payerFeedback = info.sender?.feedback,
+            layoutId = layoutId,
+            rating = if ((info.rating?.score ?: 0) > 0) PostComponentsRating(
+                info.rating?.score,
+                info.rating?.components
+            ) else null,
+            successRedirectUrl = deeplink,
+            failedRedirectUrl = deeplink
+        )
+        return safeApiCall(dispatcher) { apiRequests.postPaymentSbp(body, getXRequestId()) }
+    }
+
+    suspend fun postSavedPaymentAuth(
+        layoutId: String,
+        info: PaymentInfoData,
+        cryptogram: String?,
+        cardId: String?,
+        captcha: String? = null
+    ): BasicResponse<PaymentAuthData> {
+        val body = PostCardSavedAuth(
+            amount = info.getAmount(),
+            feeFromPayer = info.getFeeFromPayer(),
+            payerName = info.sender?.name,
+            payerComment = info.sender?.comment,
+            payerFeedback = info.sender?.feedback,
+            layoutId = layoutId,
+            cryptogram = cryptogram,
+            rating = if ((info.rating?.score ?: 0) > 0) PostComponentsRating(
+                info.rating?.score,
+                info.rating?.components
+            ) else null,
+            captchaVerificationToken = captcha,
+            cardId = cardId,
+            externalId = sharedPrefs.cardExternalId
+        )
+        return safeApiCall(dispatcher) { apiRequests.postPaymentAuthSaved(body, getXRequestId()) }
+    }
+
+    suspend fun postPaymentTinkoff(
+        layoutId: String,
+        info: PaymentInfoData,
+        deeplink: String?
+    ): BasicResponse<PaymentExternalData> {
+        val body = PostExternalAuth(
+            amount = info.getAmount(),
+            feeFromPayer = info.getFeeFromPayer(),
+            payerName = info.sender?.name,
+            payerComment = info.sender?.comment,
+            payerFeedback = info.sender?.feedback,
+            layoutId = layoutId,
+            rating = if ((info.rating?.score ?: 0) > 0) PostComponentsRating(
+                info.rating?.score,
+                info.rating?.components
+            ) else null,
+            successRedirectUrl = deeplink,
+            failedRedirectUrl = deeplink
+        )
+        return safeApiCall(dispatcher) { apiRequests.postPaymentTinkoff(body, getXRequestId()) }
     }
 
     suspend fun postPayment3ds(md: String, paRes: String): BasicResponse<PaymentAuthData> {
@@ -124,6 +203,22 @@ class NetworkClient {
 
     suspend fun postAuthVerify(amount: Double, layoutId: String, version: Int, token: String?): BasicResponse<AuthVerifyData> {
         return safeApiCall(dispatcher) { apiRequests.postAuthVerify(PostAuthVerify(amount, layoutId, version, token)) }
+    }
+
+    suspend fun getSbpBankList(): ResultWrapper<SbpListData> {
+        return safeApiResultWrapper(dispatcher) { apiRequests.getSbpList() }
+    }
+
+    suspend fun getSavedCards(): BasicResponse<List<SavedCardData>> {
+        return safeApiCall(dispatcher) { apiRequests.getSavedCards(sharedPrefs.cardExternalId) }
+    }
+
+    suspend fun getPaymentTinkoffStatus(id: String?): BasicResponse<PaymentStatusData> {
+        return safeApiCall(dispatcher) { apiRequests.getPaymentTinkoffStatus(id) }
+    }
+
+    suspend fun getPaymentSbpStatus(id: String?): BasicResponse<PaymentStatusData> {
+        return safeApiCall(dispatcher) { apiRequests.getPaymentSbpStatus(id) }
     }
 
     private suspend fun <T> safeApiCall(dispatcher: CoroutineDispatcher, apiCall: suspend () -> BasicResponse<T>): BasicResponse<T> {
@@ -207,3 +302,28 @@ class BasicResponse<T> {
         }
     }
 }
+
+private suspend fun <T> safeApiResultWrapper(dispatcher: CoroutineDispatcher, apiCall: suspend () -> T): ResultWrapper<T> {
+    return withContext(dispatcher) {
+        try {
+            ResultWrapper.Success(apiCall.invoke())
+        } catch (throwable: Throwable) {
+            when (throwable) {
+                is IOException -> ResultWrapper.NetworkError
+                is HttpException -> {
+                    ResultWrapper.GenericError(throwable.code(), throwable.response()?.errorBody()?.string())
+                }
+                else -> {
+                    ResultWrapper.GenericError(null, null)
+                }
+            }
+        }
+    }
+}
+
+sealed class ResultWrapper<out T> {
+    data class Success<out T>(val value: T) : ResultWrapper<T>()
+    data class GenericError(val code: Int? = null, val error: String?) : ResultWrapper<Nothing>()
+    object NetworkError : ResultWrapper<Nothing>()
+}
+

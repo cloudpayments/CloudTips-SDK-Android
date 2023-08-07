@@ -326,54 +326,6 @@
                             </com.google.android.material.textfield.TextInputLayout>
 
                             <com.google.android.material.textfield.TextInputLayout
-                                android:id="@+id/email_input_layout"
-                                style="@style/TextInputOutlinedLayout"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content">
-
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/email_input"
-                                    style="@style/TextInputOutlinedEditText"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:hint="@string/tips_field_email"
-                                    android:imeOptions="actionDone"
-                                    android:inputType="textEmailAddress" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:id="@+id/phone_input_layout"
-                                style="@style/TextInputOutlinedLayout"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content">
-
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/phone_input"
-                                    style="@style/TextInputOutlinedEditText"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:hint="@string/tips_field_phone"
-                                    android:imeOptions="actionDone"
-                                    android:inputType="number" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                android:id="@+id/city_input_layout"
-                                style="@style/TextInputOutlinedLayout"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content">
-
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/city_input"
-                                    style="@style/TextInputOutlinedEditText"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:hint="@string/tips_field_city"
-                                    android:imeOptions="actionDone"
-                                    android:inputType="text" />
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
                                 android:id="@+id/comment_input_layout"
                                 style="@style/TextInputOutlinedLayout"
                                 android:layout_width="match_parent"
@@ -385,6 +337,22 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:hint="@string/tips_field_comment"
+                                    android:imeOptions="actionDone"
+                                    android:inputType="text" />
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                android:id="@+id/feedback_input_layout"
+                                style="@style/TextInputOutlinedLayout"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content">
+
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/feedback_input"
+                                    style="@style/TextInputOutlinedEditText"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:hint="@string/tips_field_feedback"
                                     android:imeOptions="actionDone"
                                     android:inputType="text" />
                             </com.google.android.material.textfield.TextInputLayout>
@@ -495,6 +463,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginHorizontal="16dp"
                             android:layout_marginTop="24dp"
+                            android:layout_marginBottom="12dp"
                             android:clickable="true"
                             android:descendantFocusability="blocksDescendants"
                             android:focusable="true">
@@ -529,15 +498,137 @@
                                 app:layout_constraintTop_toTopOf="parent" />
                         </androidx.constraintlayout.widget.ConstraintLayout>
 
-
-                        <androidx.appcompat.widget.AppCompatButton
-                            android:id="@+id/card_button"
-                            style="@style/ButtonMain"
+                        <FrameLayout
+                            android:id="@+id/tpay_layout"
                             android:layout_width="match_parent"
                             android:layout_height="@dimen/button_height"
                             android:layout_marginHorizontal="16dp"
-                            android:layout_marginTop="24dp"
-                            android:text="@string/link_edit_payment_page_bank_button" />
+                            android:layout_marginTop="12dp"
+                            android:theme="@style/ButtonBlack"
+                            android:visibility="gone">
+
+                            <FrameLayout
+                                android:id="@+id/tpay_button"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent">
+
+                                <androidx.appcompat.widget.AppCompatImageView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    app:srcCompat="@drawable/ic_tinkoff_pay_logo" />
+                            </FrameLayout>
+
+                            <FrameLayout
+                                android:id="@+id/tpay_block_button"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone">
+
+                                <ProgressBar
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:indeterminateDrawable="@drawable/spinner_ring"
+                                    android:indeterminateOnly="true"
+                                    android:indeterminateTint="@color/colorWhite" />
+
+                            </FrameLayout>
+
+                        </FrameLayout>
+
+                        <FrameLayout
+                            android:id="@+id/sbp_layout"
+                            style="@style/ButtonSbp"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/button_height"
+                            android:layout_marginHorizontal="16dp"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:id="@+id/sbp_button"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center">
+
+                                <androidx.appcompat.widget.AppCompatTextView
+                                    style="@style/RegularText.16"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_vertical"
+                                    android:text="@string/pay_button"
+                                    android:textColor="@color/colorWhite" />
+
+                                <Space
+                                    android:layout_width="10dp"
+                                    android:layout_height="wrap_content" />
+
+                                <androidx.appcompat.widget.AppCompatImageView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_vertical"
+                                    app:srcCompat="@drawable/ic_sbp" />
+                            </LinearLayout>
+
+                            <FrameLayout
+                                android:id="@+id/sbp_block_button"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone">
+
+                                <ProgressBar
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:indeterminateDrawable="@drawable/spinner_ring"
+                                    android:indeterminateOnly="true"
+                                    android:indeterminateTint="@color/colorWhite" />
+                            </FrameLayout>
+                        </FrameLayout>
+
+                        <com.yandex.pay.core.ui.YandexPayButton
+                            android:id="@+id/ypay_button"
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/button_height"
+                            android:layout_marginHorizontal="16dp"
+                            android:layout_marginTop="12dp"
+                            android:visibility="gone"
+                            app:yandexpay_color_scheme="dark"
+                            app:yandexpay_corner_radius="@dimen/button_corner_radius" />
+
+                        <FrameLayout
+                            android:id="@+id/card_layout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginHorizontal="16dp"
+                            android:layout_marginTop="12dp">
+
+                            <androidx.appcompat.widget.AppCompatButton
+                                android:id="@+id/card_button"
+                                style="@style/ButtonMain"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/link_edit_payment_page_bank_button" />
+
+                            <FrameLayout
+                                android:id="@+id/card_block_button"
+                                style="@style/ButtonMain"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone">
+
+                                <ProgressBar
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:indeterminateDrawable="@drawable/spinner_ring"
+                                    android:indeterminateOnly="true"
+                                    android:indeterminateTint="@color/colorWhite" />
+
+                            </FrameLayout>
+
+                        </FrameLayout>
 
                         <FrameLayout
                             android:id="@+id/gpay_button"

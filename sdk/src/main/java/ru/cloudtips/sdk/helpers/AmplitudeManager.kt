@@ -11,7 +11,7 @@ import ru.cloudtips.sdk.models.PaymentCardData
 import ru.cloudtips.sdk.models.PaymentInfoData
 import ru.cloudtips.sdk.network.models.PaymentPageData
 
-class AmplitudeManager(private val context: Context) {
+class AmplitudeManager(context: Context) {
     private val amplitude: Amplitude by lazy {
         Amplitude(Configuration(apiKey = context.getString(R.string.amplitude_apikey), context = context.applicationContext))
     }
@@ -27,9 +27,7 @@ class AmplitudeManager(private val context: Context) {
         val fields = paymentPageData?.getAvailableFields() ?: emptyMap()
         val comment = fields[PaymentPageData.AvailableFields.FieldNames.COMMENT]
         val name = fields[PaymentPageData.AvailableFields.FieldNames.NAME]
-        val email = fields[PaymentPageData.AvailableFields.FieldNames.EMAIL]
-        val city = fields[PaymentPageData.AvailableFields.FieldNames.CITY]
-        val phone = fields[PaymentPageData.AvailableFields.FieldNames.PHONE_NUMBER]
+        val feedback = fields[PaymentPageData.AvailableFields.FieldNames.FEEDBACK]
         val amountType = when (paymentPageData?.getPaymentType()) {
             PaymentPageData.PaymentType.VOLUNTARY -> "random"
             PaymentPageData.PaymentType.FIXED -> "fix"
@@ -45,12 +43,8 @@ class AmplitudeManager(private val context: Context) {
                 "payer_comment_required" to (comment?.getRequired() ?: false),
                 "payer_name" to (name?.getEnabled() ?: false),
                 "payer_name_required" to (name?.getRequired() ?: false),
-                "payer_email" to (email?.getEnabled() ?: false),
-                "payer_email_required" to (email?.getRequired() ?: false),
-                "payer_city" to (city?.getEnabled() ?: false),
-                "payer_city_required" to (city?.getRequired() ?: false),
-                "payer_phone" to (phone?.getEnabled() ?: false),
-                "payer_phone_required" to (phone?.getRequired() ?: false),
+                "payer_feedback" to (feedback?.getEnabled() ?: false),
+                "payer_feedback_required" to (feedback?.getRequired() ?: false),
                 "amount" to amountType,
 //                "preset_amount" to (amountType == "preset"),
                 "target" to (paymentPageData?.getTarget() != null),
@@ -65,12 +59,10 @@ class AmplitudeManager(private val context: Context) {
             "payment_page_click_pay", mutableMapOf(
                 "pay_by" to payType.name.lowercase(),
                 "amount_entered" to payerData?.getAmount(),
-                "payer_fee_is_filled" to (payerData?.feeFromPayer ?: false),
+                "payer_fee_is_filled" to (payerData?.getFeeFromPayer() ?: false),
                 "payer_comment_is_filled" to (payerData?.sender?.comment != null),
                 "payer_name_is_filled" to (payerData?.sender?.name != null),
-                "payer_email_is_filled" to (payerData?.sender?.email != null),
-                "payer_city_is_filled" to (payerData?.sender?.city != null),
-                "payer_phone_is_filled" to (payerData?.sender?.phone != null),
+                "payer_feedback_is_filled" to (payerData?.sender?.feedback != null),
                 "rating_is_filled" to (payerData?.rating?.score ?: 0),
                 "rating_components" to payerData?.rating?.components?.mapIndexed { index, s -> s + "_" + index }?.joinToString(",")
             )
@@ -125,18 +117,24 @@ class AmplitudeManager(private val context: Context) {
         )
     }
 
+    fun trackSbpBankClick(item: SbpHelper.SbpBank) {
+        trackEvent(
+            "click_payment_page_bank_sbp", mutableMapOf(
+                "bank_name" to item.name,
+            )
+        )
+    }
+
     fun trackPageClosed(payType: PayType?, payerData: PaymentInfoData?) {
         trackEvent(
             "payment_page_closed", mutableMapOf(
                 "step" to lastEventAction,
                 "pay_by" to payType?.name?.lowercase(),
                 "amount_entered" to payerData?.getAmount(),
-                "payer_fee_is_filled" to (payerData?.feeFromPayer ?: false),
+                "payer_fee_is_filled" to (payerData?.getFeeFromPayer() ?: false),
                 "payer_comment_is_filled" to (payerData?.sender?.comment != null),
                 "payer_name_is_filled" to (payerData?.sender?.name != null),
-                "payer_email_is_filled" to (payerData?.sender?.email != null),
-                "payer_city_is_filled" to (payerData?.sender?.city != null),
-                "payer_phone_is_filled" to (payerData?.sender?.phone != null),
+                "payer_feedback_is_filled" to (payerData?.sender?.feedback != null),
                 "rating_is_filled" to (payerData?.rating?.score ?: 0),
                 "rating_components" to payerData?.rating?.components?.mapIndexed { index, s -> s + "_" + index }?.joinToString(",")
             )
@@ -161,5 +159,5 @@ class AmplitudeManager(private val context: Context) {
 
 @Parcelize
 enum class PayType : Parcelable {
-    YANDEXPAY, GOOGLEPAY, TINKOFFPAY, CARD;
+    YANDEXPAY, GOOGLEPAY, TINKOFFPAY, CARD, SBP;
 }

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Parcelable
 import android.text.format.DateFormat
 import kotlinx.parcelize.Parcelize
+import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.helpers.CommonHelper
 import java.util.*
 import kotlin.math.ceil
@@ -29,6 +30,8 @@ data class PaymentPageData(
     val url: String?,
     private val rating: RatingData?,
     private val googlePayEnabled: Boolean?,
+    private val sbpPayEnabled: Boolean?,
+    private val tinkoffPayEnabled: Boolean?,
     val percents: Percents?
 ) : Parcelable {
 
@@ -36,8 +39,17 @@ data class PaymentPageData(
 
     fun getPaymentMessage() = paymentMessage?.getText()
 
-    fun getUserAvatar() = avatarUrl
+    fun getUserAvatar(): String? {
+        //hardcode for default avatar from server
+        return if (BuildConfig.DEBUG && avatarUrl != null && avatarUrl.contains("avatar-default")) null
+        else avatarUrl
+    }
 
+    fun getLogo(): String? {
+        //hardcode for default avatar from server
+        return if (BuildConfig.DEBUG && logoUrl != null && logoUrl.contains("cloudtips-logo")) null
+        else logoUrl
+    }
     fun getUserName() = nameText
 
     fun getRating() = rating
@@ -46,7 +58,9 @@ data class PaymentPageData(
 
     fun getGooglePayEnabled() = googlePayEnabled ?: false
 
-    fun getLogo(): String? = logoUrl
+    fun getSbpEnabled() = sbpPayEnabled ?: false
+
+    fun getTinkoffPayEnabled() = tinkoffPayEnabled ?: false
 
     fun getBackgroundColor(): Int? = CommonHelper.getColorByString(backgroundColor)
 
@@ -145,10 +159,8 @@ data class PaymentPageData(
     @Parcelize
     data class AvailableFields(
         val comment: AvailableFieldsValue?,
-        val email: AvailableFieldsValue?,
         val name: AvailableFieldsValue?,
-        val payerCity: AvailableFieldsValue?,
-        val phoneNumber: AvailableFieldsValue?
+        val payerFeedback: AvailableFieldsValue?
     ) : Parcelable {
 
         @Parcelize
@@ -161,7 +173,7 @@ data class PaymentPageData(
         }
 
         enum class FieldNames {
-            COMMENT, EMAIL, NAME, CITY, PHONE_NUMBER;
+            COMMENT, NAME, FEEDBACK;
         }
     }
 
@@ -238,21 +250,22 @@ data class PaymentPageData(
                 fields.name?.let {
                     put(AvailableFields.FieldNames.NAME, it)
                 }
-                fields.email?.let {
-                    put(AvailableFields.FieldNames.EMAIL, it)
-                }
-                fields.phoneNumber?.let {
-                    put(AvailableFields.FieldNames.PHONE_NUMBER, it)
-                }
                 fields.comment?.let {
                     put(AvailableFields.FieldNames.COMMENT, it)
                 }
-                fields.payerCity?.let {
-                    put(AvailableFields.FieldNames.CITY, it)
+                fields.payerFeedback?.let {
+                    put(AvailableFields.FieldNames.FEEDBACK, it)
                 }
             }
         }
         return map
+    }
+
+    fun hasPersonalData(): Boolean {
+        if (availableFields == null) return false
+        if (availableFields.name != null && availableFields.name.getEnabled()) return true
+        if (availableFields.payerFeedback != null && availableFields.payerFeedback.getEnabled()) return true
+        return false
     }
 
     enum class PaymentType {

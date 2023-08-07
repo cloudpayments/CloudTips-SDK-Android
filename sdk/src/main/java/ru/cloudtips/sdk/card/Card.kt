@@ -2,6 +2,7 @@ package ru.cloudtips.sdk.card
 
 import android.text.TextUtils
 import android.util.Base64
+import ru.cloudtips.sdk.BuildConfig
 import java.io.UnsupportedEncodingException
 import java.security.*
 import java.security.spec.InvalidKeySpecException
@@ -111,8 +112,10 @@ class Card {
             return false
         }
 
-        @Throws(UnsupportedEncodingException::class, NoSuchPaddingException::class, NoSuchAlgorithmException::class, BadPaddingException::class,
-            IllegalBlockSizeException::class, InvalidKeyException::class)
+        @Throws(
+            UnsupportedEncodingException::class, NoSuchPaddingException::class, NoSuchAlgorithmException::class, BadPaddingException::class,
+            IllegalBlockSizeException::class, InvalidKeyException::class
+        )
         fun cardCryptogram(number: String, cardExp: String, cardCvv: String, publicId: String): String? {
             val cardNumber = prepareCardNumber(number)
             var exp = cardExp.replace("/", "")
@@ -153,9 +156,16 @@ class Card {
          * @throws InvalidKeyException
          */
 
-        @Throws(UnsupportedEncodingException::class, NoSuchPaddingException::class, NoSuchAlgorithmException::class, BadPaddingException::class, IllegalBlockSizeException::class, InvalidKeyException::class)
-        fun cardCryptogramForCVV(cardCvv: String): String? {
-            val bytes = cardCvv.toByteArray(charset("ASCII"))
+        @Throws(
+            UnsupportedEncodingException::class,
+            NoSuchPaddingException::class,
+            NoSuchAlgorithmException::class,
+            BadPaddingException::class,
+            IllegalBlockSizeException::class,
+            InvalidKeyException::class
+        )
+        fun cardCryptogramForCVV(cardCvv: String?): String? {
+            val bytes = cardCvv?.toByteArray(charset("ASCII"))
             val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
             val random = SecureRandom()
             cipher.init(Cipher.ENCRYPT_MODE, getRSAKey(), random)

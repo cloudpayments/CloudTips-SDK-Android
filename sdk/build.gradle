@@ -12,8 +12,8 @@ android {
         minSdkVersion 23
         targetSdkVersion 33
 
-        versionCode 5
-        versionName "2.1.0"
+        versionCode 7
+        versionName "2.2.1"
 
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled true
@@ -28,9 +28,10 @@ android {
 
     buildTypes {
         debug {
+//            buildConfigField "String", "URL_API", "\"https://api.cloudtips.ru\""
+//            buildConfigField "String", "RECAPTCHA_TOKEN", "\"6Ld2OBAaAAAAABt2wqNwimkSNPYh_w0QkUaDO-5L\""
             buildConfigField "String", "URL_API", "\"https://api-preprod.cloudtips.ru\""
             buildConfigField "String", "RECAPTCHA_TOKEN", "\"6LevqioaAAAAACV-3MsrVGj10t9fp4C5phtabS67\""
-
         }
         release {
             buildConfigField "String", "URL_API", "\"https://api.cloudtips.ru\""
@@ -85,6 +86,8 @@ dependencies {
     implementation 'jp.wasabeef:glide-transformations:4.3.0'
 
     implementation 'ru.tinkoff.decoro:decoro:1.5.1'
+
+    implementation 'com.yandex.pay:core:0.2.1'
 
     implementation 'org.jsoup:jsoup:1.13.1'
 

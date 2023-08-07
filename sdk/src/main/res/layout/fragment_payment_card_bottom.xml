@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bottom_sheet_background"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="24dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/cards_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:orientation="vertical"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            tools:itemCount="3"
+            tools:listitem="@layout/rv_item_payment_card_single" />
+
+        <LinearLayout
+            android:id="@+id/new_card_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <include
+                android:id="@+id/new_card_edit_layout"
+                layout="@layout/rv_item_payment_card_single" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
+                android:id="@+id/new_card_manage_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <CheckBox
+                    android:id="@+id/save_card_checkbox"
+                    style="@style/CheckboxStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="@string/save_card_hint" />
+
+                <ImageButton
+                    android:id="@+id/save_card_hint_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="4dp"
+                    android:background="@null"
+                    android:src="@drawable/ic_hint"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/manage_card_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="visible">
+
+                <TextView
+                    android:id="@+id/add_card_button"
+                    style="@style/RegularText.16"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start|center_vertical"
+                    android:drawablePadding="4dp"
+                    android:gravity="center"
+                    android:text="@string/save_card_new_label"
+                    android:textColor="@color/colorAccent"
+                    app:drawableStartCompat="@drawable/ic_plus_flat" />
+
+                <TextView
+                    android:id="@+id/add_card_block_button"
+                    style="@style/RegularText.16"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start|center_vertical"
+                    android:drawablePadding="4dp"
+                    android:gravity="center"
+                    android:text="@string/save_card_new_label"
+                    android:textColor="@color/colorButtonFontDisabled"
+                    app:drawableStartCompat="@drawable/ic_plus_flat"
+                    app:drawableTint="@color/colorButtonFontDisabled" />
+
+                <TextView
+                    android:id="@+id/delete_card_button"
+                    style="@style/RegularText.16"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end|center_vertical"
+                    android:drawablePadding="4dp"
+                    android:gravity="center"
+                    android:text="@string/delete_card_label"
+                    android:textColor="@color/colorButtonFontDisabled" />
+            </FrameLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp">
+
+            <Button
+                android:id="@+id/pay_button"
+                style="@style/ButtonMain"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/edit_card_pay_button_text"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/pay_disabled_button"
+                style="@style/ButtonMain.Disabled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/edit_card_pay_button_text"
+                android:visibility="visible" />
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <include
+        android:id="@+id/spinner_layout"
+        layout="@layout/spinner_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+</FrameLayout>

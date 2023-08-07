@@ -10,12 +10,43 @@
         </intent>
     </queries>
 
+    <queries>
+        <package android:name="com.idamob.tinkoff.android" />
+    </queries>
+
     <application>
         <activity
-            android:screenOrientation="portrait"
             android:name="ru.cloudtips.sdk.ui.activities.tips.PaymentTipsActivity"
             android:exported="true"
-            android:theme="@style/AppTheme" />
+            android:launchMode="singleInstance"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="${CTSDK_CLIENT_ID}"
+                    android:scheme="@string/sbp_deeplink_scheme" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="${CTSDK_CLIENT_ID}"
+                    android:scheme="@string/tpay_deeplink_scheme" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="@string/cloudtips_metadata_link_id"
+            android:value="${CTSDK_CLIENT_ID}" />
     </application>
 
 </manifest>

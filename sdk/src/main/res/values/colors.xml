@@ -17,4 +17,11 @@
     <color name="colorInputClearButton">#66000000</color>
     <color name="colorRed">#ff0000</color>
     <color name="colorTextHint">#8A000000</color>
+    <color name="colorSbpButton">#231E45</color>
+    <color name="colorSbpInputBackground">#0F001024</color>
+    <color name="colorButtonDisabled">#08001024</color>
+    <color name="colorButtonFontDisabled">#38001024</color>
+    <color name="colorBottomLineInactive">#C9C9C9</color>
+    <color name="colorDarkTranslucentBackground">#B2000000</color>
+    <color name="colorWarning">#4DFFDD2D</color>
 </resources>

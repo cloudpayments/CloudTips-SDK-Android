@@ -9,7 +9,6 @@ import android.text.*
 import android.text.method.LinkMovementMethod
 import android.util.Base64
 import android.util.Log
-import android.util.Patterns
 import android.view.View
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -27,6 +26,10 @@ import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.material.textfield.TextInputLayout
+import com.yandex.pay.core.*
+import com.yandex.pay.core.data.*
+import com.yandex.pay.core.data.Amount
+import com.yandex.pay.core.ui.YandexPayButton
 import jp.wasabeef.glide.transformations.RoundedCornersTransformation
 import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.R
@@ -52,6 +55,7 @@ import kotlin.math.roundToInt
 import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.helpers.PayType
 import ru.cloudtips.sdk.helpers.observeOnce
+import ru.cloudtips.sdk.helpers.showBottomDialog
 import ru.cloudtips.sdk.models.PresetInfoData
 import ru.cloudtips.sdk.ui.activities.tips.adapters.PresetsAdapter
 
@@ -64,6 +68,7 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         super.onAttach(context)
         gPayClient = GPayClient(context)
         listener = context as? IPaymentInfoListener
+        initYPayment()
     }
 
     override fun onDetach() {
@@ -108,13 +113,11 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 fillInfoData()
                 fillFeeAndButtonInfo()
                 fillLinksInfo()
-                if (paymentPageData?.getGooglePayEnabled() == true) {
-                    gPayClient?.canUseGooglePay?.observe(viewLifecycleOwner) {
-                        updateGooglePayButton(it)
-                    }
-                } else {
-                    updateGooglePayButton(false)
-                }
+                updateGooglePayButton()
+                updateYPayButton()
+                updateTPayButton()
+                updateSbpButton()
+                amplitude.trackLayoutShow(data)
             } else {
                 //TODO: show error
             }
@@ -135,10 +138,8 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         }
 
         nameInput.doAfterTextChanged { savePaymentInfoSender() }
-        emailInput.doAfterTextChanged { savePaymentInfoSender() }
-        phoneInput.doAfterTextChanged { savePaymentInfoSender() }
-        cityInput.doAfterTextChanged { savePaymentInfoSender() }
         commentInput.doAfterTextChanged { savePaymentInfoSender() }
+        feedbackInput.doAfterTextChanged { savePaymentInfoSender() }
 
         headerCloseButton.setOnClickListener {
             viewModel.trackPageClosed()
@@ -147,7 +148,8 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
 
         cardButton.setOnClickListener {
             if (validatePayClick()) {
-                launchPaymentClick { listener?.onPayInfoClick() }
+                lockCardButton(false)
+                launchPaymentClick { requestCardClick() }
                 viewModel.trackPayClick(PayType.CARD)
             }
         }
@@ -155,6 +157,32 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
             if (validatePayClick()) {
                 launchPaymentClick { requestGPayClick() }
                 viewModel.trackPayClick(PayType.GOOGLEPAY)
+            }
+        }
+        ypayButton.setOnClickListener(YandexPayButton.OnClickListener {
+            if (validatePayClick()) {
+                launchPaymentClick { requestYPayClick() }
+                viewModel.trackPayClick(PayType.YANDEXPAY)
+            }
+        })
+        sbpButton.setOnClickListener {
+            lockSBPButton(true)
+            if (validatePayClick()) {
+                launchPaymentClick { requestSbpClick() }
+                viewModel.trackPayClick(PayType.SBP)
+            } else {
+                lockSBPButton(false)
+            }
+        }
+        tpayButton.setOnClickListener {
+            lockTPayButton(true)
+            if (validatePayClick()) {
+                launchPaymentClick {
+                    requestTPayClick()
+                }
+                viewModel.trackPayClick(PayType.TINKOFFPAY)
+            } else {
+                lockTPayButton(false)
             }
         }
     }
@@ -166,10 +194,12 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
     }
 
     private fun launchPaymentClick(callback: () -> Unit) {
+        CommonHelper.hideKeyboard(view)
         val amount = getAmount()
         viewModel.getFeeValue(amount).observe(viewLifecycleOwner) {
             callback.invoke()
         }
+        view?.clearFocus()
     }
 
     private fun validatePayClick(): Boolean {
@@ -187,11 +217,9 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
 
     private fun savePaymentInfoSender() = with(viewBinding) {
         val name = nameInput.text?.toString()
-        val email = emailInput.text?.toString()
-        val phone = phoneInput.text?.toString()
-        val city = cityInput.text?.toString()
         val comment = commentInput.text?.toString()
-        viewModel.putPaymentInfoSenderData(name, email, phone, city, comment)
+        val feedback = feedbackInput.text?.toString()
+        viewModel.putPaymentInfoSenderData(name, comment, feedback)
     }
 
     private fun savePaymentInfoRating() = with(viewBinding) {
@@ -200,38 +228,56 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         viewModel.putPaymentInfoRatingData(rating, ratingComponents)
     }
 
-    private fun updateGooglePayButton(available: Boolean) = with(viewBinding) {
-        gpayButton.visibility = if (available) View.VISIBLE else View.GONE
+    private fun lockCardButton(enable: Boolean) = with(viewBinding) {
+        cardButton.visibility = if (enable) View.VISIBLE else View.GONE
+        cardBlockButton.visibility = if (enable) View.GONE else View.VISIBLE
+    }
+
+    private fun requestCardClick() {
+        lockCardButton(true)
+        requireActivity().showBottomDialog(PaymentCardBottomFragment.newInstance())
+    }
+
+    private fun updateGooglePayButton() = with(viewBinding) {
+        if (paymentPageData?.getGooglePayEnabled() == true) {
+            gPayClient?.canUseGooglePay?.observe(viewLifecycleOwner) {
+                gpayButton.visibility = if (it) View.VISIBLE else View.GONE
+            }
+        } else {
+            gpayButton.visibility = View.GONE
+        }
     }
 
     private fun requestGPayClick() = with(viewBinding) {
         // Disables the button to prevent multiple clicks.
         gpayButton.isClickable = false
-        viewModel.getMerchantId().observe(viewLifecycleOwner) {
-            gPayClient?.getLoadPaymentDataTask(getAmount(), it?.publicId)?.addOnCompleteListener { completedTask ->
-                if (completedTask.isSuccessful) {
-                    launchGPayment(completedTask.result)
-                } else {
-                    when (val exception = completedTask.exception) {
-                        is ResolvableApiException -> {
-                            resolveGPaymentForResult.launch(
-                                IntentSenderRequest.Builder(exception.resolution).build()
-                            )
-                        }
-                        is ApiException -> {
-                            handleGPayError(exception.statusCode, exception.message)
-                        }
-                        else -> {
-                            handleGPayError(
-                                CommonStatusCodes.INTERNAL_ERROR, "Unexpected non API" +
-                                        " exception when trying to deliver the task result to an activity!"
-                            )
+        viewModel.getMerchantId().observeOnce(viewLifecycleOwner) { publicData ->
+            viewModel.getPaymentInfoData().observeOnce(viewLifecycleOwner) {
+                gPayClient?.getLoadPaymentDataTask(it.getAmountWithFee(), publicData?.publicId)?.addOnCompleteListener { completedTask ->
+                    if (completedTask.isSuccessful) {
+                        launchGPayment(completedTask.result)
+                    } else {
+                        when (val exception = completedTask.exception) {
+                            is ResolvableApiException -> {
+                                resolveGPaymentForResult.launch(
+                                    IntentSenderRequest.Builder(exception.resolution).build()
+                                )
+                            }
+                            is ApiException -> {
+                                handleGPayError(exception.statusCode, exception.message)
+                            }
+                            else -> {
+                                handleGPayError(
+                                    CommonStatusCodes.INTERNAL_ERROR, "Unexpected non API" +
+                                            " exception when trying to deliver the task result to an activity!"
+                                )
+                            }
                         }
                     }
-                }
 
-                // Re-enables the Google Pay payment button.
-                gpayButton.isClickable = true
+                    // Re-enables the Google Pay payment button.
+                    gpayButton.isClickable = true
+                }
             }
         }
     }
@@ -266,10 +312,7 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         val data = response.data
         when (data?.getStatusCode()) {
             PaymentAuthStatusCode.NEED3DS -> {
-                val acsUrl = data.acsUrl ?: ""
-                val paReq = data.paReq ?: ""
-                val md = data.md ?: ""
-                val fragment3ds = ThreeDsDialogFragment.newInstance(acsUrl, paReq, md, payType)
+                val fragment3ds = ThreeDsDialogFragment.newInstance(data, payType)
                 fragment3ds.show(parentFragmentManager, "NEED3DS")
                 fragment3ds.setTargetFragment(this@PaymentInfoFragment, REQUEST_CODE_3DS)
             }
@@ -290,12 +333,130 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         listener?.onPaymentFailure(payType)
     }
 
+    private fun updateYPayButton() = with(viewBinding) {
+        val enabled = YandexPayLib.isSupported
+        ypayButton.visibility = if (enabled) View.VISIBLE else View.GONE
+    }
+
+    private fun initYPayment() {
+        if (YandexPayLib.isSupported) {
+            val environment = if (BuildConfig.DEBUG) YandexPayEnvironment.SANDBOX else YandexPayEnvironment.PROD
+            val logging = BuildConfig.DEBUG
+            YandexPayLib.initialize(
+                requireContext(), YandexPayLibConfig(
+                    environment = environment,
+                    logging = logging,
+                    locale = YandexPayLocale.RU,
+                    merchantDetails = Merchant(
+                        id = MerchantId.from(getString(R.string.ypay_merchant_id)),
+                        name = getString(R.string.ypay_merchant_name),
+                        url = getString(R.string.ypay_merchant_url)
+                    )
+                )
+            )
+        }
+    }
+
+    private fun requestYPayClick() = with(viewBinding) {
+        ypayButton.isClickable = false
+        viewModel.getMerchantId().observeOnce(viewLifecycleOwner) {
+            val publicId = it?.publicId ?: ""
+            viewModel.getPaymentInfoData().observeOnce(viewLifecycleOwner) { infoData ->
+                val name = if (!nameTextView.text.isNullOrEmpty()) nameTextView.text.toString() else "CloudTips"
+                val amount = infoData.getAmountWithFee()
+                yandexPayLauncher.launch(
+                    OrderDetails(
+                        order = Order(
+                            id = OrderID.from(name),
+                            amount = Amount.from(amount.toString()),
+                            label = name,
+                            listOf()
+                        ),
+                        paymentMethods = listOf(
+                            PaymentMethod(
+                                allowedAuthMethods = listOf(AuthMethod.PanOnly),
+                                type = PaymentMethodType.Card,
+                                gateway = Gateway.from("cloudpayments"),
+                                allowedCardNetworks = listOf(CardNetwork.Visa, CardNetwork.MasterCard, CardNetwork.MIR),
+                                gatewayMerchantId = GatewayMerchantID.from(publicId),
+                            )
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+    private val yandexPayLauncher = registerForActivityResult(OpenYandexPayContract()) { result: YandexPayResult ->
+        viewBinding.ypayButton.isClickable = true
+        when (result) {
+            is YandexPayResult.Success -> handleYPaySuccess(result.paymentToken)
+            is YandexPayResult.Failure -> when (result) {
+                is YandexPayResult.Failure.Validation -> handleYPayFailure(result.details.name)
+                is YandexPayResult.Failure.Internal -> handleYPayFailure(result.message)
+            }
+            YandexPayResult.Cancelled -> {}
+        }
+    }
+
+    private fun handleYPaySuccess(paymentToken: PaymentToken) {
+        val token = String(Base64.decode(paymentToken.toString(), Base64.DEFAULT))
+        showSpinner()
+        viewModel.launchYPayment(token).observeOnce(viewLifecycleOwner) { response ->
+            hideSpinner()
+            handlePaymentResponse(response, PayType.YANDEXPAY)
+        }
+    }
+
+    private fun handleYPayFailure(message: String?) {
+        Log.w("loadPaymentData failed", String.format("Ya payment error: %s", message))
+        onPaymentFailure(PayType.YANDEXPAY)
+    }
+
+    private fun lockSBPButton(locked: Boolean) = with(viewBinding) {
+        sbpButton.visibility = if (locked) View.GONE else View.VISIBLE
+        sbpBlockButton.visibility = if (locked) View.VISIBLE else View.GONE
+    }
+
+    private fun updateSbpButton() = with(viewBinding) {
+        val available = paymentPageData?.getSbpEnabled() == true
+        sbpLayout.visibility = if (available) View.VISIBLE else View.GONE
+    }
+
+    private fun requestSbpClick() {
+        listener?.onPayInfoSbpLaunch()
+        lockSBPButton(false)
+    }
+
+    private fun updateTPayButton() = with(viewBinding) {
+        val enabled = (paymentPageData?.getTinkoffPayEnabled() ?: false) && CommonHelper.isTinkoffBankAvailable(requireContext())
+        tpayLayout.visibility = if (enabled) View.VISIBLE else View.GONE
+    }
+
+    private fun lockTPayButton(locked: Boolean) = with(viewBinding) {
+        tpayButton.visibility = if (locked) View.GONE else View.VISIBLE
+        tpayBlockButton.visibility = if (locked) View.VISIBLE else View.GONE
+    }
+
+    private fun requestTPayClick() {
+        lockTPayButton(true)
+        viewModel.launchTPayment().observeOnce(viewLifecycleOwner) {
+            lockTPayButton(false)
+            if (it.succeed) {
+                listener?.onPayInfoTinkoffLaunch(it.data)
+            } else {
+                onPaymentFailure(PayType.TINKOFFPAY)
+            }
+        }
+    }
+
     override fun onAuthorizationCompleted(md: String, paRes: String, payType: PayType) {
         showSpinner()
-        viewModel.postPayment3ds(md, paRes).observe(this) {
+        viewModel.postPayment3ds(md, paRes).observeOnce(this) {
             hideSpinner()
             handlePaymentResponse(it, payType)
         }
+
     }
 
     override fun onAuthorizationFailed(error: String?, payType: PayType) {
@@ -380,10 +541,8 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         val fields = data.getAvailableFields()
 
         return isValidField(fields[AvailableFields.FieldNames.NAME], nameInputLayout) &&
-                isValidField(fields[AvailableFields.FieldNames.EMAIL], emailInputLayout) && isValidEmail() &&
-                isValidField(fields[AvailableFields.FieldNames.PHONE_NUMBER], phoneInputLayout) && isValidPhone() &&
-                isValidField(fields[AvailableFields.FieldNames.CITY], cityInputLayout) &&
-                isValidField(fields[AvailableFields.FieldNames.COMMENT], commentInputLayout)
+                isValidField(fields[AvailableFields.FieldNames.COMMENT], commentInputLayout) &&
+                isValidField(fields[AvailableFields.FieldNames.FEEDBACK], feedbackInputLayout)
     }
 
     private fun isValidField(field: AvailableFields.AvailableFieldsValue?, formField: TextInputLayout): Boolean {
@@ -395,30 +554,9 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         return isValid
     }
 
-    private fun isValidEmail(): Boolean {
-        val formField = viewBinding.emailInputLayout
-        val email = viewBinding.emailInput.text
-        if (email.isNullOrEmpty()) return true
-        val isValid = Patterns.EMAIL_ADDRESS.matcher(email).matches()
-        formField.helperText = if (!isValid) getString(R.string.field_invalid) else null
-        if (!isValid) formField.requestFocus()
-        return isValid
-    }
-
-    private fun isValidPhone(): Boolean {
-        val formField = viewBinding.phoneInputLayout
-        val email = viewBinding.phoneInput.text
-        if (email.isNullOrEmpty()) return true
-        val isValid = Patterns.PHONE.matcher(email).matches()
-        formField.helperText = if (!isValid) getString(R.string.field_invalid) else null
-        if (!isValid) formField.requestFocus()
-        return isValid
-    }
-
     private fun isValidRating(): Boolean {
         return true
     }
-
 
     private fun fillBackground() = with(viewBinding) {
         val background = paymentPageData?.getBackground()
@@ -463,6 +601,7 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 priceInputLayout.visibility = View.GONE
                 fixedPriceLayout.visibility = View.VISIBLE
                 fixedPriceView.text = getString(R.string.main_balance, data.getPaymentValue()?.roundToInt())
+                requestFeeValue(true)
             }
             PaymentType.MIN,
             PaymentType.VOLUNTARY -> {
@@ -557,23 +696,18 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
             val fields = data.getAvailableFields()
             fields[AvailableFields.FieldNames.NAME]?.let { field ->
                 nameInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
-                nameInput.setText(infoData?.sender?.name)
+                if (nameInput.text?.toString() != infoData?.sender?.name)
+                    nameInput.setText(infoData?.sender?.name)
             }
-            fields[PaymentPageData.AvailableFields.FieldNames.EMAIL]?.let { field ->
-                emailInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
-                emailInput.setText(infoData?.sender?.email)
-            }
-            fields[PaymentPageData.AvailableFields.FieldNames.PHONE_NUMBER]?.let { field ->
-                phoneInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
-                phoneInput.setText(infoData?.sender?.phone)
-            }
-            fields[PaymentPageData.AvailableFields.FieldNames.CITY]?.let { field ->
-                cityInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
-                cityInput.setText(infoData?.sender?.city)
-            }
-            fields[PaymentPageData.AvailableFields.FieldNames.COMMENT]?.let { field ->
+            fields[AvailableFields.FieldNames.COMMENT]?.let { field ->
                 commentInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
-                commentInput.setText(infoData?.sender?.comment)
+                if (commentInput.text?.toString() != infoData?.sender?.comment)
+                    commentInput.setText(infoData?.sender?.comment)
+            }
+            fields[AvailableFields.FieldNames.FEEDBACK]?.let { field ->
+                feedbackInputLayout.visibility = if (field.getEnabled()) View.VISIBLE else View.GONE
+                if (feedbackInput.text?.toString() != infoData?.sender?.feedback)
+                    feedbackInput.setText(infoData?.sender?.feedback)
             }
             fillRating(infoData?.rating)
         }
@@ -661,6 +795,7 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         val buttonColor = getButtonsColor()
         CommonHelper.setViewTint(feeSwitch, buttonColor)
         CommonHelper.setViewTint(cardButton, buttonColor)
+        CommonHelper.setViewTint(cardBlockButton, buttonColor)
         updateFeeValue()
     }
 
@@ -692,21 +827,55 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
     }
 
     private fun fillLinksInfo() = with(viewBinding) {
-        val licenseUrl = getString(R.string.license_url)
-        val licenseSub = getString(R.string.link_edit_payment_page_info_text_subs)
-        val licenseText = getString(R.string.link_edit_payment_page_info_text, licenseSub)
-        val licenseStart = licenseText.indexOf(licenseSub)
-        val spannedLicense = SpannableStringBuilder(licenseText)
         val linksColor = paymentPageData?.getLinksColor()
-        spannedLicense.setSpan(
-            ClickableUrlSpan(licenseUrl, this@PaymentInfoFragment, true, linksColor),
-            licenseStart,
-            licenseStart + licenseSub.length,
-            Spanned.SPAN_INCLUSIVE_EXCLUSIVE
-        )
+        val hasPersonalData = paymentPageData?.hasPersonalData() ?: false
+        val spannedLicense: SpannableStringBuilder
+        if (!hasPersonalData) {
+            val licenseUrl = getString(R.string.license_url)
+            val licenseSub = getString(R.string.link_edit_payment_page_info_text_subs_license)
+            val licenseText = getString(R.string.link_edit_payment_page_info_text, licenseSub)
+            val licenseStart = licenseText.indexOf(licenseSub)
+            spannedLicense = SpannableStringBuilder(licenseText)
+            spannedLicense.setSpan(
+                ClickableUrlSpan(licenseUrl, this@PaymentInfoFragment, true, linksColor),
+                licenseStart,
+                licenseStart + licenseSub.length,
+                Spanned.SPAN_INCLUSIVE_EXCLUSIVE
+            )
+        } else {
+            val licenseUrl = getString(R.string.license_url)
+            val agreementUrl = getString(R.string.agreement_url)
+            val policyUrl = getString(R.string.policy_url)
+            val licenseSub = getString(R.string.link_edit_payment_page_info_text_subs_license)
+            val agreementSub = getString(R.string.link_edit_payment_page_info_text_subs_agreement)
+            val policySub = getString(R.string.link_edit_payment_page_info_text_subs_policy)
+            val licenseText = getString(R.string.link_edit_payment_page_info_full_text, licenseSub, agreementSub, policySub)
+            val licenseStart = licenseText.indexOf(licenseSub)
+            val agreementStart = licenseText.indexOf(agreementSub)
+            val policyStart = licenseText.indexOf(policySub)
+            spannedLicense = SpannableStringBuilder(licenseText)
+            spannedLicense.setSpan(
+                ClickableUrlSpan(licenseUrl, this@PaymentInfoFragment, true, linksColor),
+                licenseStart,
+                licenseStart + licenseSub.length,
+                Spanned.SPAN_INCLUSIVE_EXCLUSIVE
+            )
+            spannedLicense.setSpan(
+                ClickableUrlSpan(agreementUrl, this@PaymentInfoFragment, true, linksColor),
+                agreementStart,
+                agreementStart + agreementSub.length,
+                Spanned.SPAN_INCLUSIVE_EXCLUSIVE
+            )
+            spannedLicense.setSpan(
+                ClickableUrlSpan(policyUrl, this@PaymentInfoFragment, true, linksColor),
+                policyStart,
+                policyStart + policySub.length,
+                Spanned.SPAN_INCLUSIVE_EXCLUSIVE
+            )
+        }
+
         licenseTextView.text = spannedLicense
         licenseTextView.movementMethod = LinkMovementMethod.getInstance()
-
 
         val privacyUrl = getString(R.string.google_captch_privacy)
         val termsUrl = getString(R.string.google_captch_terms)

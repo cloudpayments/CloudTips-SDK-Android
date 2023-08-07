@@ -20,6 +20,7 @@ import ru.cloudtips.sdk.R
 import ru.cloudtips.sdk.amplitude
 import ru.cloudtips.sdk.databinding.DialogCpsdkThreeDsBinding
 import ru.cloudtips.sdk.helpers.PayType
+import ru.cloudtips.sdk.network.models.PaymentAuthData
 import java.io.UnsupportedEncodingException
 import java.net.URLEncoder
 import java.util.*
@@ -37,7 +38,10 @@ class ThreeDsDialogFragment : DialogFragment(R.layout.dialog_cpsdk_three_ds) {
         private const val ARG_PA_REQ = "pa_req"
         private const val ARG_PAY_TYPE = "pay_type"
 
-        fun newInstance(acsUrl: String, paReq: String, md: String, payType: PayType) = ThreeDsDialogFragment().apply {
+        fun newInstance(data: PaymentAuthData?, payType: PayType) = ThreeDsDialogFragment().apply {
+            val acsUrl = data?.acsUrl ?: ""
+            val paReq = data?.paReq ?: ""
+            val md = data?.md ?: ""
             arguments = Bundle().also {
                 it.putString(ARG_ACS_URL, acsUrl)
                 it.putString(ARG_MD, md)

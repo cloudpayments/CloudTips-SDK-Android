@@ -4,7 +4,8 @@ data class PaymentAuthData(
     val acsUrl: String?,
     val md: String?,
     val paReq: String?,
-    private val statusCode: String?
+    private val statusCode: String?,
+    val externalId: String?
 ) {
 
     fun getStatusCode(): PaymentAuthStatusCode {
