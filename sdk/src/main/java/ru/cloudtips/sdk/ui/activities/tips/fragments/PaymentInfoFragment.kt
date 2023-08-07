@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.text.*
 import android.text.method.LinkMovementMethod
-import android.util.Base64
 import android.util.Log
 import android.view.View
 import androidx.activity.result.ActivityResult
@@ -26,12 +25,7 @@ import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.wallet.PaymentData
 import com.google.android.material.textfield.TextInputLayout
-import com.yandex.pay.core.*
-import com.yandex.pay.core.data.*
-import com.yandex.pay.core.data.Amount
-import com.yandex.pay.core.ui.YandexPayButton
 import jp.wasabeef.glide.transformations.RoundedCornersTransformation
-import ru.cloudtips.sdk.BuildConfig
 import ru.cloudtips.sdk.R
 import ru.cloudtips.sdk.card.ThreeDsDialogFragment
 import ru.cloudtips.sdk.databinding.FragmentPaymentInfoBinding
@@ -68,7 +62,6 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         super.onAttach(context)
         gPayClient = GPayClient(context)
         listener = context as? IPaymentInfoListener
-        initYPayment()
     }
 
     override fun onDetach() {
@@ -114,7 +107,6 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 fillFeeAndButtonInfo()
                 fillLinksInfo()
                 updateGooglePayButton()
-                updateYPayButton()
                 updateTPayButton()
                 updateSbpButton()
                 amplitude.trackLayoutShow(data)
@@ -159,12 +151,6 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
                 viewModel.trackPayClick(PayType.GOOGLEPAY)
             }
         }
-        ypayButton.setOnClickListener(YandexPayButton.OnClickListener {
-            if (validatePayClick()) {
-                launchPaymentClick { requestYPayClick() }
-                viewModel.trackPayClick(PayType.YANDEXPAY)
-            }
-        })
         sbpButton.setOnClickListener {
             lockSBPButton(true)
             if (validatePayClick()) {
@@ -333,86 +319,6 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
         listener?.onPaymentFailure(payType)
     }
 
-    private fun updateYPayButton() = with(viewBinding) {
-        val enabled = YandexPayLib.isSupported
-        ypayButton.visibility = if (enabled) View.VISIBLE else View.GONE
-    }
-
-    private fun initYPayment() {
-        if (YandexPayLib.isSupported) {
-            val environment = if (BuildConfig.DEBUG) YandexPayEnvironment.SANDBOX else YandexPayEnvironment.PROD
-            val logging = BuildConfig.DEBUG
-            YandexPayLib.initialize(
-                requireContext(), YandexPayLibConfig(
-                    environment = environment,
-                    logging = logging,
-                    locale = YandexPayLocale.RU,
-                    merchantDetails = Merchant(
-                        id = MerchantId.from(getString(R.string.ypay_merchant_id)),
-                        name = getString(R.string.ypay_merchant_name),
-                        url = getString(R.string.ypay_merchant_url)
-                    )
-                )
-            )
-        }
-    }
-
-    private fun requestYPayClick() = with(viewBinding) {
-        ypayButton.isClickable = false
-        viewModel.getMerchantId().observeOnce(viewLifecycleOwner) {
-            val publicId = it?.publicId ?: ""
-            viewModel.getPaymentInfoData().observeOnce(viewLifecycleOwner) { infoData ->
-                val name = if (!nameTextView.text.isNullOrEmpty()) nameTextView.text.toString() else "CloudTips"
-                val amount = infoData.getAmountWithFee()
-                yandexPayLauncher.launch(
-                    OrderDetails(
-                        order = Order(
-                            id = OrderID.from(name),
-                            amount = Amount.from(amount.toString()),
-                            label = name,
-                            listOf()
-                        ),
-                        paymentMethods = listOf(
-                            PaymentMethod(
-                                allowedAuthMethods = listOf(AuthMethod.PanOnly),
-                                type = PaymentMethodType.Card,
-                                gateway = Gateway.from("cloudpayments"),
-                                allowedCardNetworks = listOf(CardNetwork.Visa, CardNetwork.MasterCard, CardNetwork.MIR),
-                                gatewayMerchantId = GatewayMerchantID.from(publicId),
-                            )
-                        )
-                    )
-                )
-            }
-        }
-    }
-
-    private val yandexPayLauncher = registerForActivityResult(OpenYandexPayContract()) { result: YandexPayResult ->
-        viewBinding.ypayButton.isClickable = true
-        when (result) {
-            is YandexPayResult.Success -> handleYPaySuccess(result.paymentToken)
-            is YandexPayResult.Failure -> when (result) {
-                is YandexPayResult.Failure.Validation -> handleYPayFailure(result.details.name)
-                is YandexPayResult.Failure.Internal -> handleYPayFailure(result.message)
-            }
-            YandexPayResult.Cancelled -> {}
-        }
-    }
-
-    private fun handleYPaySuccess(paymentToken: PaymentToken) {
-        val token = String(Base64.decode(paymentToken.toString(), Base64.DEFAULT))
-        showSpinner()
-        viewModel.launchYPayment(token).observeOnce(viewLifecycleOwner) { response ->
-            hideSpinner()
-            handlePaymentResponse(response, PayType.YANDEXPAY)
-        }
-    }
-
-    private fun handleYPayFailure(message: String?) {
-        Log.w("loadPaymentData failed", String.format("Ya payment error: %s", message))
-        onPaymentFailure(PayType.YANDEXPAY)
-    }
-
     private fun lockSBPButton(locked: Boolean) = with(viewBinding) {
         sbpButton.visibility = if (locked) View.GONE else View.VISIBLE
         sbpBlockButton.visibility = if (locked) View.VISIBLE else View.GONE
@@ -456,7 +362,6 @@ class PaymentInfoFragment : Fragment(R.layout.fragment_payment_info), ClickableU
             hideSpinner()
             handlePaymentResponse(it, payType)
         }
-
     }
 
     override fun onAuthorizationFailed(error: String?, payType: PayType) {
